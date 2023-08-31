@@ -1,7 +1,7 @@
 :root {
     --p-dark: #171717;
     --p-black: #0d0d0d;
-    --p-whitest: #f2f2f2;
+    --p-background: #1a1a1a;
     --p-white: #d9d9d9;
     --bs: 1;
   }
@@ -85,14 +85,6 @@
     display: none;
   }
   
-  /* .menu-item .active svg{
-    color: var(--p-whitest);
-    transform: scale(0.1);
-  } */
-  /* .active{
-    transform: scale(0.8);
-  } */
-  
   .menu-item svg {
     color: var(--p-white);
     width: 100%;
@@ -108,8 +100,6 @@
     transform: scale(calc(1.4 * var(--bs)));
   }
   
-
-
   
   /* ---------------------------------------------- logout ----------------------------------------------------*/
   
@@ -123,38 +113,14 @@
   
   .content {
     margin: 2rem 2rem 2rem 0;
-    flex-grow: 1;
+    width: 100%;
+    /* flex-grow: 1; */
     border-radius: 1.5rem;
-    background-color: var(--p-whitest);
-    display: flex;
-    flex-direction: column;
-    /* justify-content: center; */
-    /* align-items: center; */
-  }
-  .supra{
-    display: flex;
-    flex-direction: column;
-    height: 100%;
+    background-color: var(--p-background);
+    /* display: flex; */
+    /* flex-direction: column; */
   }
   
-  .slaman{
-    height: 50%;
-    max-height: 50%;
-    background-color: red;
-    margin: 0 0 0 0;
-    width: 100%;
-    height: 100%;
-  }
-  .slaman2{
-    height: 50%;
-    max-height: 50%;
-    background-color: green;
-    width: 100%;
-    height: 100%;
-    margin: 0 0 0 0;
-    width: 100%;
-  }
-
   .mydatagrid{
     margin: 0;
     padding: 0;

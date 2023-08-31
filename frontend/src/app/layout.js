@@ -2,7 +2,7 @@ import React from "react";
 import { LiveTv, Logout, Feed, Dashboard, Person } from "@mui/icons-material";
 import Head from "next/head";
 import Menu from "./components/menu";
-import './style.css';
+import './global_style.css';
 
 const pagesIcons = [LiveTv, Feed, Dashboard];
 const titles = ["Câmeras", "Relatórios", "Dashboard"];

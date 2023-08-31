@@ -1,5 +1,9 @@
+import styles from './page.module.css'
 export default function Home(){
-    return <main>
-        <div>LIVECAM</div>
-    </main>
+    return (
+        <>
+        <div className={styles.flexcontainer}>
+        </div>
+        </>
+    )
 }
