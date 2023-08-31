@@ -27,12 +27,14 @@ export default function Layout({ children }) {
         <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300&display=swap" rel="stylesheet"/>
       </Head>
       <body>
+        <main>
         <div className="main-container">
           <Menu menuItems={menuItems} />
           <div className="content">
             {children}
           </div>
         </div>
+        </main>
       </body>
     </html>
   );

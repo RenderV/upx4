@@ -1,6 +1,8 @@
 'use client'
 import { DataGrid } from '@mui/x-data-grid';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { borderRadius } from '@mui/system';
+import { Typography } from '@mui/material';
 
 export default function Dg({rows, className}){
     const darkTheme = createTheme({
@@ -43,6 +45,10 @@ export default function Dg({rows, className}){
     return (
         <ThemeProvider theme={darkTheme}>
         <DataGrid
+          sx = {{
+              borderRadius: '25px'
+            }
+          }
           rows={rows}
           className={className}
           columns={columns}
@@ -52,7 +58,6 @@ export default function Dg({rows, className}){
             },
           }}
           pageSizeOptions={[10, 20]}
-          checkboxSelection
         />
         </ThemeProvider>
     )
