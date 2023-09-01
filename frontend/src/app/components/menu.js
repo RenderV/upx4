@@ -1,11 +1,18 @@
 import React from "react";
-import MenuItem from "./item"; // Import the MenuItem component from the item.js file
+import MenuItem from "./item";
 
-function Menu({ menuItems }) {
+function Menu({ menuItems, setTheme, theme }) {
+  const toggleTheme = () => {
+    if(theme === 'dark'){
+      setTheme('light')
+    } else if (theme === 'light'){
+      setTheme('dark')
+    }
+  }
   return (
     <div className="menu">
       <div className="menu-section menu-section-user">
-        <MenuItem icon={<menuItems.UserIcon />} link='user' />
+        <MenuItem icon={<menuItems.UserIcon />} link=''/>
       </div>
       <div className="menu-section menu-section-pages">
         <div className="menu-items-container">
@@ -15,6 +22,7 @@ function Menu({ menuItems }) {
         </div>
       </div>
       <div className="menu-section menu-section-logout">
+        <MenuItem icon={<menuItems.DarkModeIcon />} title="Toggle Dark Mode" link='' onclick={toggleTheme}/>
         <MenuItem icon={<menuItems.LogoutIcon />} title="Log out" link='logout' />
       </div>
     </div>

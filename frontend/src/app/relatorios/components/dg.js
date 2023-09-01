@@ -10,6 +10,11 @@ export default function Dg({rows, className}){
         mode: 'dark',
       },
     });
+    const lightTheme= createTheme({
+        palette: {
+        mode: 'light',
+        },
+    });
 
     const columns = [
       { field: 'id', headerName: 'ID', width: 90 },
@@ -43,7 +48,6 @@ export default function Dg({rows, className}){
       },
     ]
     return (
-        <ThemeProvider theme={darkTheme}>
         <DataGrid
           sx = {{
               borderRadius: '25px'
@@ -59,6 +63,5 @@ export default function Dg({rows, className}){
           }}
           pageSizeOptions={[10, 20]}
         />
-        </ThemeProvider>
     )
 }
