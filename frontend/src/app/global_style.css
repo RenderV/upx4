@@ -9,7 +9,6 @@
   }
 
   .dark {
-    background-color: var(--p-dark-bg);
     color: var(--p-white);
   }
 
@@ -53,7 +52,7 @@
     justify-content: center;
     align-items: center;
   }
-  
+
   .menu-section {
     display: flex;
     flex-direction: inherit;
@@ -61,6 +60,24 @@
     align-items: inherit;
     width: 100%;
   }
+  
+  @media only screen and (max-width: 900px){
+    .main-container{
+      flex-direction: column;
+      width: 100%;
+      align-items: center;
+    }
+    .menu{
+      order: 0;
+      height: 3rem;
+      width: 80%;
+      flex-direction: row;
+    }
+    .menu-section{
+      flex-direction: row;
+    }
+  }
+
   
   /* ---------------------------------------------- user ----------------------------------------------------*/
   
@@ -120,6 +137,37 @@
   .menu-item.active svg {
     transform: scale(calc(1.4 * var(--bs)));
   }
+
+  @media only screen and (max-width: 900px){
+    .menu-section-user{
+      height: 5vh;
+    }
+    .menu-items-container {
+      margin: auto;
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+      overflow-x: scroll;
+      display: flex;
+      flex-direction: row;
+      gap: 0rem;
+    }
+    .menu-item {
+      border-radius: 50%;
+      width: 3rem;
+      height: 3rem;
+      flex-shrink: 0;
+      overflow-y: visible;
+    }
+    .menu-section-pages{
+      width: 50%;
+      height: auto;
+    }
+    .menu-item svg {
+      width: 1.5rem;
+      height: auto;
+    }
+  }
+
   
   
   /* ---------------------------------------------- logout ----------------------------------------------------*/
@@ -135,29 +183,27 @@
   .content {
     margin: 2rem 2rem 2rem 0;
     width: 100%;
-    /* flex-grow: 1; */
     border-radius: 1.5rem;
-    /* background-color: var(--p-background); */
-    /* display: flex; */
-    /* flex-direction: column; */
   }
   
   .mydatagrid{
     margin: 0;
     padding: 15px;
   }
-  
-  /* h1 {
-    color: #000;
-    font-family: Roboto;
-    font-size: 35px;
-    font-style: normal;
-    font-weight: 100;
-    line-height: normal;
-    margin: 40px 50px;
-    margin-bottom: 0;
-  } */
-  
+
+  @media only screen and (max-width: 900px){
+    .content{
+      order: -1;
+      height: 92vh;
+      margin: 0;
+      margin-top: 1vh;
+      width: 100%;
+      border-radius: 0.5rem;
+    }
+    .mydatagrid{
+      height: 100%;
+    }
+  } 
   
   /* ---------------------------------------------- page content ----------------------------------------------------*/
   

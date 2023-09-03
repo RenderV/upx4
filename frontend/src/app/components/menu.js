@@ -22,8 +22,8 @@ function Menu({ menuItems, setTheme, theme }) {
         </div>
       </div>
       <div className="menu-section menu-section-logout">
-        <MenuItem icon={<menuItems.DarkModeIcon />} title="Toggle Dark Mode" link='' onclick={toggleTheme}/>
-        <MenuItem icon={<menuItems.LogoutIcon />} title="Log out" link='logout' />
+        <MenuItem icon={<menuItems.DarkModeIcon />} title="Modo Escuro" link='' onclick={toggleTheme}/>
+        <MenuItem icon={<menuItems.LogoutIcon />} title="Log out" link='' />
       </div>
     </div>
   );
