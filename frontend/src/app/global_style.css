@@ -2,13 +2,13 @@
     --p-dark: #171717;
     --p-dark-bg: #1a1a1a;
     --p-black: #0d0d0d;
-    /* --p-background: #1a1a1a; */
     --p-background: #d9d9d9;
     --p-white: #d9d9d9;
     --bs: 1;
   }
 
   .dark {
+    background-color: var(--p-dark-bg);
     color: var(--p-white);
   }
 
@@ -36,7 +36,7 @@
   .main-container {
     margin: 0;
     padding: 0;
-    height: 100vh;
+    height: 100dvh;
     width: 100vw;
     display: flex;
     flex-direction: row;
@@ -140,7 +140,7 @@
 
   @media only screen and (max-width: 900px){
     .menu-section-user{
-      height: 5vh;
+      height: 5dvh;
     }
     .menu-items-container {
       margin: auto;
@@ -189,19 +189,16 @@
   .mydatagrid{
     margin: 0;
     padding: 15px;
+    border-radius: 1.5rem;
   }
 
   @media only screen and (max-width: 900px){
     .content{
       order: -1;
-      height: 92vh;
+      height: 92dvh;
       margin: 0;
-      margin-top: 1vh;
+      margin-top: 1dvh;
       width: 100%;
-      border-radius: 0.5rem;
-    }
-    .mydatagrid{
-      height: 100%;
     }
   } 
   

@@ -1,8 +1,8 @@
 'use client'
 import { DataGrid } from '@mui/x-data-grid';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import { borderRadius } from '@mui/system';
 import { Typography } from '@mui/material';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 export default function Dg({rows, className}){
     const darkTheme = createTheme({
@@ -47,10 +47,11 @@ export default function Dg({rows, className}){
           `${params.row.firstName || ''} ${params.row.lastName || ''}`,
       },
     ]
+    const matches = useMediaQuery('(max-width:900px)')
     return (
         <DataGrid
           sx = {{
-              borderRadius: '25px'
+              borderRadius: matches ? '2rem' : '1.5rem',
             }
           }
           rows={rows}
