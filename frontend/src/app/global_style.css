@@ -68,7 +68,6 @@
       align-items: center;
     }
     .menu{
-      order: 0;
       height: 3rem;
       width: 80%;
       flex-direction: row;
@@ -174,7 +173,7 @@
   
   .menu-section-logout {
     height: 25%;
-    transform: scale(0.7);
+    transform: scale(0.5);
     
   }
   
@@ -184,6 +183,14 @@
     margin: 2rem 2rem 2rem 0;
     width: 100%;
     border-radius: 1.5rem;
+    overflow: auto;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    overflow-y: scroll;
+  }
+
+  .content::-webkit-scrollbar {
+    display: none;
   }
   
   .mydatagrid{

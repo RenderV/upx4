@@ -1,8 +1,10 @@
-import styles from './page.module.css'
-export default function Home(){
-    return (
-        <>
-            <div className={styles.idk}>Test</div>
-        </>
-    )
+import styles from "./page.module.css";
+import Selection from "./components/draggable";
+
+export default function Home() {
+  return (
+    <>
+      <Selection/>
+    </>
+  );
 }
