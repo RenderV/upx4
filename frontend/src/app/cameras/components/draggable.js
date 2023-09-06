@@ -65,28 +65,31 @@ const DraggableSvgElement = React.forwardRef(({ children, initialCoordinates = {
     if (ref.current !== null) {
       const viewBox = ref.current.getAttribute('viewBox');
       const bbox = ref.current.getBoundingClientRect();
-      var [offsetX, offsetY] = [bbox.x, bbox.y]
 
       if (viewBox !== null) {
         var [xmin, ymin, w, h] = viewBox.split(' ').map((a) => Number(a));
-        var scaleOffsetX = 0
-        var scaleOffsetY = 0
+        var innerOffsetX = 0
+        var innerOffsetY = 0
         
         const vRatio  = w/h
-        const cRatio = bbox.width/bbox.height;
+        const bRatio = bbox.width/bbox.height;
 
-        if(vRatio !== cRatio){
-          if(bbox.width > bbox.height){
-            scaleOffsetX = (((cRatio)-1)*w)/2
-          } else if (bbox.width < bbox.height){
-            scaleOffsetY = ((bbox.height/bbox.width-1)*h)/2
-          }
+        if(bRatio > vRatio){
+              const scale = h/bbox.height
+              const Cw = scale*bbox.width
+              innerOffsetX = (Cw-w)/2
+        } else if (bRatio < vRatio){
+              const scale = w/bbox.width
+              const Ch = scale*bbox.height
+              innerOffsetY = (Ch-h)/2
         }
-        
-        x -=offsetX
-        y -=offsetY
-        x = mapRange(x, 0, bbox.width, xmin-scaleOffsetX, w+scaleOffsetX)
-        y = mapRange(y, 0, bbox.height, ymin-scaleOffsetY, h+scaleOffsetY)
+        x -= bbox.x
+        y -= bbox.y
+        x = mapRange(x, 0, bbox.width, xmin-innerOffsetX, w+innerOffsetX)
+        y = mapRange(y, 0, bbox.height, ymin-innerOffsetY, h+innerOffsetY)
+      } else {
+        x -= bbox.x
+        y -= bbox.y
       }
     }
     x = Math.round(x);
@@ -94,7 +97,6 @@ const DraggableSvgElement = React.forwardRef(({ children, initialCoordinates = {
     return { x, y };
   };
 
-  DraggableSvgElement.displayName = 'DraggableSvgElement'
 
   const [position, onMouseDown] = useDraggable(initialCoordinates);
   const { x, y } = calcRelCords(position);
@@ -111,6 +113,8 @@ const DraggableSvgElement = React.forwardRef(({ children, initialCoordinates = {
   );
 });
 
+DraggableSvgElement.displayName = 'DraggableSvgElement'
+
 
 function Polygon({points}){
 }
@@ -121,7 +125,10 @@ export default function Selection() {
     <div className={styles.selection_area}>
       <svg width={'100%'} height={'100%'} style={{backgroundColor: 'pink'}} viewBox="0 0 1000 1000" ref={ref}>
         <DraggableSvgElement ref={ref}>
-          <rect x="10" y="10" width="10" height="10" fill="black" />
+          <rect x="10" y="10" width="80" height="80" fill="black" />
+        </DraggableSvgElement>
+        <DraggableSvgElement ref={ref}>
+          <rect x="20" y="20" width="80" height="80" fill="black" />
         </DraggableSvgElement>
       </svg>
     </div>
