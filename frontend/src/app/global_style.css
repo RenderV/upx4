@@ -209,10 +209,3 @@
     }
   } 
   
-  /* ---------------------------------------------- page content ----------------------------------------------------*/
-  
-  .test-class{
-    display: block;
-    font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    font-size: 90px;
-  }

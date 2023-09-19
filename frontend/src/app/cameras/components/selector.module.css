@@ -1,0 +1,13 @@
+.point {
+  transition-property: fill; /* Only transition width and height */
+  transition-duration: 0.3s; /* Transition duration for width and height */
+  transition-timing-function: ease; /* Timing function for width and height */
+}
+
+.point:hover{
+    fill: white;
+}
+
+.line{
+    color: black;
+}

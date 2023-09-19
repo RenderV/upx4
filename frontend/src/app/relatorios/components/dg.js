@@ -5,16 +5,6 @@ import { Typography } from '@mui/material';
 import useMediaQuery from '@mui/material/useMediaQuery';
 
 export default function Dg({rows, className}){
-    const darkTheme = createTheme({
-      palette: {
-        mode: 'dark',
-      },
-    });
-    const lightTheme= createTheme({
-        palette: {
-        mode: 'light',
-        },
-    });
 
     const columns = [
       { field: 'id', headerName: 'ID', width: 90 },
