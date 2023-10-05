@@ -1,13 +1,38 @@
-.point {
-  transition-property: fill; /* Only transition width and height */
-  transition-duration: 0.3s; /* Transition duration for width and height */
-  transition-timing-function: ease; /* Timing function for width and height */
-}
-
-.point:hover{
-    fill: white;
+.polygon rect{
+  transition-property: fill; 
+  transition-duration: 0.5s; 
+  transition-timing-function: ease; 
+  fill: black;
 }
 
 .line{
-    color: black;
+    transition-property: stroke stroke-width; 
+    transition-duration: 0.5s;
+    transition-timing-function: ease; 
+
+    stroke-width: 5;
+    stroke: white
+}
+
+.polygon{
+  position: relative;
+}
+
+.deleteMode:hover rect{
+  fill: rgb(86, 42, 42);
+}
+
+.deleteMode:hover line{
+  stroke-width: 2;
+}
+
+.createMode rect:hover,
+.editMode rect:hover{
+  fill: white;
+}
+
+.editMode .line:hover,
+.editMode .line:hover ~.line,
+.editMode .line:has(~ line:hover){
+  stroke-width: 7;
 }

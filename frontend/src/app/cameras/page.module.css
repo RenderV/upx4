@@ -1,0 +1,85 @@
+.videoContainer{
+    width: 100%;
+    height: 100%;
+}
+
+.video {
+    border-radius: 5px;
+}
+
+.canvasController{
+    width: 65px;
+    height: 300px;
+
+    transition-duration: 0.3s;
+    transition-timing-function: ease; 
+
+    position: absolute;
+    top: 50%;
+    left: 100%;
+    transform: translate(-30%, -50%);
+    
+    background-color: #171717;
+    border-radius: 20px/30px;
+
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    overflow-y: scroll;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    max-height: 100%;
+}
+
+.canvasController::-webkit-scrollbar {
+    display: none;
+}
+
+.canvasController:hover{
+    transform: translate(-90%, -50%);
+    background-color: #161616;
+}
+
+
+.active{
+    transform: scale(1.4);
+}
+
+.controlButton{
+    border-radius: 50%;
+    transition: transform 0.2s ease;
+}
+
+.drawer{
+    transition-property: transform;
+    transition-duration: 0.4s;
+    transition-timing-function: ease-out; 
+    position: absolute; 
+    left: -10%;
+}
+
+.canvasController:hover .drawer{
+    transform: rotateY(180deg);
+}
+
+
+@media only screen and (max-width: 900px){
+    .canvasController{
+        width: 300px;
+        height: 65px;
+        flex-direction: row;
+        border-radius: 10px;
+        top: 0;
+        left: 50%;
+        transform: translate(-50%, 0);
+    }
+    .canvasController:hover{
+        transform: translate(-50%, 0);
+        background-color: #161616;
+    }
+    .drawer{
+        visibility: hidden;
+    }
+}

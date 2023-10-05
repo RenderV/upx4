@@ -35,7 +35,7 @@ export const calcRelCords = ({ x, y }, svgNode) => {
               const scale = viewBoxHeight/bbox.height
               const Cw = scale*bbox.width
               innerOffsetX = (Cw-viewBoxWidth)/2
-        } else if (bRaeio < vRatio){
+        } else if (bRatio < vRatio){
               // the y axis will have a bigger range than the viewbox
               const scale = viewBoxWidth/bbox.width
               const Ch = scale*bbox.height
@@ -91,7 +91,7 @@ export const calcAbsCords = ({ x, y }, svgRef) => {
 // custom hook used to enable drag functionality on an element
 // it calls updatePosition to move the object and update the state (causing a rerender) when the mouse button is released.
 
-export function useDrag(initialPosition = {x: 0, y: 0}, updatePosition, customConv=({x, y})=>{x, y}) {
+export function useDrag(initialPosition = {x: null, y: null}, updatePosition, customConv=({x, y})=>{x, y}) {
   const [position, setPosition] = useState(initialPosition);
 
   const onMouseDown = (e) => {
@@ -107,7 +107,13 @@ export function useDrag(initialPosition = {x: 0, y: 0}, updatePosition, customCo
     };
     const onMouseUp = (e) => {
       window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('touchmove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
+      setPosition(customConv({
+        x: e.clientX - offsetX,
+        y: e.clientY - offsetY,
+      }));
+      window.removeEventListener('touchend', onMouseUp);
       setPosition(customConv({
         x: e.clientX - offsetX,
         y: e.clientY - offsetY,
@@ -115,7 +121,9 @@ export function useDrag(initialPosition = {x: 0, y: 0}, updatePosition, customCo
     };
 
     window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('touchmove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
+    window.addEventListener('touchend', onMouseUp);
   };
 
   return [

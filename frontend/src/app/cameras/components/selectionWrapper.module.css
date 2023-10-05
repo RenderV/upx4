@@ -1,0 +1,25 @@
+.selectionWrapper{
+    margin: auto;
+    position: relative;
+    top: 50%;
+    transform: translate(0, -50%);
+    width: 100%;
+    aspect-ratio: 16 / 9;
+}
+
+.selectionWrapper > *{
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    transition-property: height; /* Only transition width and height */
+    transition-duration: 0.3s; /* Transition duration for width and height */
+    transition-timing-function: ease; /* Timing function for width and height */
+}
+
+@media only screen and (max-width: 900px){
+    .selectionWrapper{
+        width: 100%;
+    }
+}

@@ -1,64 +1,34 @@
-import React, { useState, useRef, useReducer, useEffect } from "react";
+import React, { useState, useRef, useReducer, } from "react";
 import { v4 as uuidv4 } from 'uuid';
-import { useDrag, calcRelCords } from './utils';
+import { calcRelCords } from './utils';
 import styles from './selector.module.css'
+import { DraggableSVGElement, DraggableGroup } from "./draggableElements";
 
-function DraggableSvgElement({
-  children,
-  initialCoordinates = { x: 0, y: 0 },
-  onStartDragging = () => { },
-  onDragging = () => { },
-  onFinishDragging = () => { },
-  svgRef
-}) {
-  if (!React.isValidElement(children)) {
-    throw new Error("DraggableComponent must have a single valid React element as its child.");
-  }
-
-  const objRef = useRef();
-
-  const intermediateMovement = (x, y) => {
-    const newPos = calcRelCords({ x, y }, svgRef.current);
-    if (objRef.current !== null && svgRef.current !== null) {
-      objRef.current.setAttribute("x", newPos.x);
-      objRef.current.setAttribute("y", newPos.y);
-      onDragging(newPos.x, newPos.y)
-    }
-  };
-
-  const cvtPos = ({ x, y }) => {
-    return calcRelCords({ x, y }, svgRef.current)
-  }
-
-  const [position, drag] = useDrag(initialCoordinates, intermediateMovement, cvtPos);
-
-  useEffect(() => {
-    onFinishDragging(position.x, position.y);
-  }, [position]);
-
-  return (
-    React.cloneElement(children, {
-      ...children.props,
-      onMouseDown: (e) => {
-        e.stopPropagation()
-        onStartDragging(position.x, position.y);
-        drag(e);
-        if (children.props.onMouseDown !== undefined) {
-          children.props.onMouseDown(e)
-        }
-      },
-      x: position.x,
-      y: position.y,
-      ref: objRef,
-    })
-  );
-};
+export const editModeType = {
+  CREATE: "CREATE",
+  DELETE: "DELETE",
+  MOVE: "MOVE",
+  EDIT: "EDIT",
+  BLOCK: "BLOCK"
+}
 
 const selectionActions = {
   CREATE_POLYGON: 'CREATE_POLYGON',
   DELETE_POLYGON: 'DELETE_POLYGON',
+  DELETE_POINT: 'DELETE_POINT',
   ADD_POINT: 'ADD_POINT',
-  MODIFY_POINT: 'MODIFY_POINT'
+  MODIFY_POINT: 'MODIFY_POINT',
+  MOVE_POLYGON: 'MOVE_POLYGON'
+}
+
+function createPoint(x, y) {
+  return {
+    id: uuidv4(),
+    x: x,
+    y: y,
+    ox: x,
+    oy: y
+  }
 }
 
 
@@ -84,6 +54,16 @@ function selectorReducer(state, action) {
       }
       return { ...state, selected: [...state.selected, polygon] }
 
+    case selectionActions.DELETE_POLYGON: {
+      const { i } = action;
+      if (i >= 0 && i < state.selected.length) {
+        const updatedSelected = [...state.selected.slice(0, i), ...state.selected.slice(i + 1)];
+        return { ...state, selected: updatedSelected };
+      } else {
+        throw new Error('Invalid index provided for deleting polygon.');
+      }
+    }
+  
     case selectionActions.MODIFY_POINT:
       const { id, x, y } = action;
       const modifiedSelected = state.selected.map((innerArray) => {
@@ -99,21 +79,37 @@ function selectorReducer(state, action) {
         });
       });
       return { ...state, selected: modifiedSelected };
+    
+    case selectionActions.DELETE_POINT: {
+        const { id } = action;
+        const updatedSelected = state.selected.map((innerArray) => {
+          return innerArray.filter((point) => point.id !== id);
+        });
+        return { ...state, selected: updatedSelected };
+      }
+    
+      case selectionActions.MOVE_POLYGON: {
+        const { i, xoffset, yoffset } = action;
+        if (i >= 0 && i < state.selected.length) {
+          const movedPolygon = state.selected[i].map((point) => ({
+            ...point,
+            x: point.x + xoffset,
+            y: point.y + yoffset,
+          }));
+          const updatedSelected = [...state.selected];
+          updatedSelected[i] = movedPolygon;
+          return { ...state, selected: updatedSelected };
+        } else {
+          throw new Error('Invalid index provided for moving polygon.');
+        }
+      }
 
     case selectionActions.DELETE_POLYGON:
       console.log('delete polygon')
     default:
       console.error('error')
-  }
-}
+      return state
 
-function createPoint(x, y) {
-  return {
-    id: uuidv4(),
-    x: x,
-    y: y,
-    ox: x,
-    oy: y
   }
 }
 
@@ -121,21 +117,31 @@ export default function SelectionCanvas({
   width = "100%",
   height = "100%",
   viewBox = "0 0 1000 1000",
-  startingPoints = [[]],
-  pointRadius = 10,
+  editMode,
+  startingPoints = [],
+  pointRadius = 7,
 }) {
   const [selectedAreas, dispatchSelection] = useReducer(selectorReducer, { selected: startingPoints })
-  const [creationMode, setCreationMode] = useState(false)
+  const [isDrawingPolygon, setDrawingState] = useState(false)
   const incompleteLine = useRef(null)
 
   const svgRef = useRef(null)
   const lineProps = { stroke: 'white', strokeWidth: '10' }
 
-  const updateState = (x, y, id) => {
+  const updatePointPos = (x, y, id) => {
     dispatchSelection({
       type: selectionActions.MODIFY_POINT,
       id: id,
       x: x, y: y
+    })
+  }
+  
+  const updatePolygonPos = (xoffset, yoffset, i) => {
+    dispatchSelection({
+      type: selectionActions.MOVE_POLYGON,
+      xoffset,
+      yoffset,
+      i: i,
     })
   }
 
@@ -151,7 +157,7 @@ export default function SelectionCanvas({
   }
 
   const handleMouseMove = (e) => {
-    if (creationMode && incompleteLine.current !== null) {
+    if (isDrawingPolygon && incompleteLine.current !== null) {
       const newPos = calcRelCords({ x: e.clientX, y: e.clientY }, svgRef.current)
       incompleteLine.current.setAttribute('x2', newPos.x)
       incompleteLine.current.setAttribute('y2', newPos.y)
@@ -162,10 +168,10 @@ export default function SelectionCanvas({
     var { x, y } = calcRelCords({ x: e.clientX, y: e.clientY }, svgRef.current)
     x -= pointRadius
     y -= pointRadius
-    if (e.button === 1) {
-      if (!creationMode) {
+    if (e.button === 0 && editMode===editModeType.CREATE) {
+      if (!isDrawingPolygon) {
         dispatchSelection({ type: selectionActions.CREATE_POLYGON })
-        setCreationMode(true)
+        setDrawingState(true)
       }
       dispatchSelection({ type: selectionActions.ADD_POINT, i: -1, j: -1, point: createPoint(x, y) })
     }
@@ -173,19 +179,21 @@ export default function SelectionCanvas({
 
   const finishPolygon = (e) => {
     e.stopPropagation()
-    setCreationMode(false)
+    setDrawingState(false)
   }
-  
-  const lines = selectedAreas.selected.map((points, j) => {
-    return points.map((point, i) => {
+
+  const lines = []
+  selectedAreas.selected.forEach((points, j) => {
+    lines[j] = []
+    points.forEach((point, i) => {
       var nextPoint = points[(i + 1) % points.length]
       var ref = null
-      if ((i < points.length - 1) || !creationMode || j < selectedAreas.selected.length - 1) {
+      if ((i < points.length - 1) || !isDrawingPolygon || j < selectedAreas.selected.length - 1) {
         ref = (node) => {
           point.lines[1] = node
           nextPoint.lines[0] = node
         }
-      } else if (creationMode && i === points.length - 1) {
+      } else if (isDrawingPolygon && i === points.length - 1) {
         nextPoint = point
         ref = incompleteLine
       }
@@ -202,28 +210,49 @@ export default function SelectionCanvas({
           ref={ref}
         />
       )
-
-      return line
+      lines[j].push(line)
     })
   })
-  const points = selectedAreas.selected.map((points, j) => {
-    return points.map((point, i) => {
+
+  const circles = []
+  selectedAreas.selected.forEach((points, j) => {
+    circles[j] = []
+    points.forEach((point, i) => {
       var onMouseDown = (i === 0 && j === selectedAreas.selected.length - 1)
         ? finishPolygon
         : () => { }
 
-      return (
-        <DraggableSvgElement key={point.id}
+      const element = editMode === editModeType.EDIT || editMode === editModeType.CREATE
+      ? (
+        <DraggableSVGElement key={point.id}
           svgRef={svgRef}
           onDragging={(x, y) => moveLine(x, y, point.lines)}
-          onFinishDragging={(x, y) => updateState(x, y, point.id)}
-          initialCoordinates={{ x: point.ox, y: point.oy}}
+          onFinishDragging={(x, y) => updatePointPos(x, y, point.id)}
+          initialCoordinates={{ x: point.x, y: point.y }}
         >
-          <rect width={pointRadius * 2} fill="red" className={styles.point} height={pointRadius * 2} rx="15" onMouseDown={onMouseDown} />
-        </DraggableSvgElement>
+          <rect width={pointRadius * 2} height={pointRadius * 2} rx="15" onMouseDown={onMouseDown} />
+        </DraggableSVGElement>
       )
+      : <rect key={point.id} width={pointRadius * 2} height={pointRadius * 2} rx="15" onMouseDown={onMouseDown} x={point.x} y={point.y}/>
+      circles[j].push(element)
     })
   })
+  
+  const modeClassMap = {
+    [editModeType.DELETE]: styles.deleteMode,
+    [editModeType.CREATE]: styles.createMode,
+    [editModeType.BLOCK]: "",
+    [editModeType.EDIT]: styles.editMode,
+  } 
+  
+  const handlePolygonClick = (i) => {
+    switch (editMode){
+      case editModeType.DELETE:
+          dispatchSelection({type: selectionActions.DELETE_POLYGON, i})
+      default:
+        break
+    }
+  }
   
   return (
     <svg
@@ -234,8 +263,16 @@ export default function SelectionCanvas({
       onMouseMove={handleMouseMove}
       onMouseDown={handleCanvasClick}
     >
-      {lines}
-      {points}
+      {circles.map((points, i)=>{
+        return <DraggableGroup key={selectedAreas.selected[i][0].id} svgRef={svgRef} onFinishDragging={(diff) => updatePolygonPos(diff.x, diff.y, i)}
+        isMovable={editMode === editModeType.EDIT}>
+          <g key={selectedAreas.selected[i][0].id} className={styles.polygon+" "+modeClassMap[editMode]} onClick={() => handlePolygonClick(i)}>
+            {lines[i]}
+            {points}
+          </g>
+        </DraggableGroup>
+      }
+      )}
     </svg>
   )
 }

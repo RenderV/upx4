@@ -33,7 +33,7 @@ const lightTheme = createTheme({
 });
 
 export default function ContentWrapper({ children }) {
-  const [theme, setTheme] = useState('light')
+  const [theme, setTheme] = useState('dark')
   return (
     <ThemeProvider theme={theme === 'dark' ? darkTheme : lightTheme}>
     <Menu menuItems={menuItems} setTheme={setTheme} theme={theme}/>
