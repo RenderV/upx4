@@ -6,6 +6,7 @@ import { editModeType } from "./components/selector"
 import { Add, ArrowLeft, Delete, EditNote, Lock } from "@mui/icons-material";
 import MenuItem from './components/menuItem'
 import { TransformComponent, TransformWrapper } from "react-zoom-pan-pinch"
+import VideoJS from "./components/videojs"
 
 export default function Home() {
   const [editMode, setEditMode] = useState(editModeType.CREATE)
@@ -15,6 +16,18 @@ export default function Home() {
       : ""
     return styles.controlButton + " " + className
   }
+
+  const videoJsOptions = {
+    autoplay: true,
+    controls: false,
+    responsive: true,
+    fluid: true,
+    sources: [{
+      src: 'http://localhost:8888/collingwood/index.m3u8',
+      type: 'application/x-mpegURL'
+    }]
+  };
+
   return (
     <>
       <TransformWrapper
@@ -27,7 +40,7 @@ export default function Home() {
           contentStyle={{ width: "100%", height: "100%" }}>
           <div className={styles.videoContainer}>
             <SelectionWrapper editMode={editMode}>
-              <video className={styles.video} autoPlay={true} name="media" src="collingwood.mp4#t=12000" type="video/mp4"></video>
+              <VideoJS options={videoJsOptions}/>
             </SelectionWrapper>
           </div>
         </TransformComponent>

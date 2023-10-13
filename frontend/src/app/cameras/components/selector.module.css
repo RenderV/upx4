@@ -33,6 +33,6 @@
 
 .editMode .line:hover,
 .editMode .line:hover ~.line,
-.editMode .line:has(~ line:hover){
+.editMode .line:has(~ .line:hover){
   stroke-width: 7;
 }

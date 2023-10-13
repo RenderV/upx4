@@ -135,13 +135,11 @@ export function useDrag(initialPosition = { x: null, y: null }, updatePosition, 
     
     const onMouseUp = (e) => {
       window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('touchmove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
       setPosition(customConv({
         x: e.clientX - offsetX,
         y: e.clientY - offsetY,
       }));
-      window.removeEventListener('touchend', onMouseUp);
       setPosition(customConv({
         x: e.clientX - offsetX,
         y: e.clientY - offsetY,
@@ -149,9 +147,7 @@ export function useDrag(initialPosition = { x: null, y: null }, updatePosition, 
     };
 
     window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('touchmove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
-    window.addEventListener('touchend', onMouseUp);
   };
 
   return [
