@@ -1,15 +1,17 @@
 'use client'
 import SelectionWrapper from "./components/selectionWrapper"
 import styles from './page.module.css'
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { editModeType } from "./components/selector"
 import { Add, ArrowLeft, Delete, EditNote, Lock } from "@mui/icons-material";
 import MenuItem from './components/menuItem'
 import { TransformComponent, TransformWrapper } from "react-zoom-pan-pinch"
 import VideoJS from "./components/videojs"
+import { getSelection, postSelection } from "./utils/fetchPoints"
 
 export default function Home() {
   const [editMode, setEditMode] = useState(editModeType.CREATE)
+  const [startingPoints, setStartingPoints] = useState([])
   const getBClass = (mode) => {
     const className = mode === editMode
       ? styles.active
@@ -28,6 +30,10 @@ export default function Home() {
     }]
   };
 
+  useEffect(() => {
+    // getSelection(setStartingPoints)
+  }, [])
+
   return (
     <>
       <TransformWrapper
@@ -39,8 +45,8 @@ export default function Home() {
         }}
           contentStyle={{ width: "100%", height: "100%" }}>
           <div className={styles.videoContainer}>
-            <SelectionWrapper editMode={editMode}>
-              <VideoJS options={videoJsOptions}/>
+            <SelectionWrapper editMode={editMode} startingPoints={startingPoints} onUpdatePos={()=>{}}>
+              <VideoJS options={videoJsOptions} />
             </SelectionWrapper>
           </div>
         </TransformComponent>

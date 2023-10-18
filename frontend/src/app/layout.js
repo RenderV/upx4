@@ -12,7 +12,7 @@ export default function Layout({ children }) {
   return (
     <html lang='pt-BR'>
       <Head/>
-      <React.StrictMode>
+      {/* <React.StrictMode> */}
       <body>
         <main>
         <div className="main-container">
@@ -22,7 +22,7 @@ export default function Layout({ children }) {
         </div>
         </main>
       </body>
-      </React.StrictMode>
+      {/* </React.StrictMode> */}
     </html>
   );
 }

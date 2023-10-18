@@ -1,14 +1,10 @@
-import React, { useState, useRef, useReducer } from "react";
+import React, { useState, useRef, useReducer, useEffect } from "react";
 import { v4 as uuidv4 } from 'uuid';
 import { calcVBOXCoords } from './utils';
 import styles from './selector.module.css'
 import { DraggableSVGElement, DraggableGroup } from "./draggableElements";
+import { Chip } from "@mui/material";
 
-/**
- * Enum representing different edit modes.
- * @readonly
- * @enum {string}
- */
 export const editModeType = {
   CREATE: "CREATE",
   DELETE: "DELETE",
@@ -17,18 +13,14 @@ export const editModeType = {
   BLOCK: "BLOCK"
 }
 
-/**
- * Enum representing different actions for polygon selection.
- * @readonly
- * @enum {string}
- */
 const selectionActions = {
-  CREATE_POLYGON: 'CREATE_POLYGON',
+  CREATE_EMPTY_POLYGON: 'CREATE_POLYGON',
   DELETE_POLYGON: 'DELETE_POLYGON',
   DELETE_POINT: 'DELETE_POINT',
   ADD_POINT: 'ADD_POINT',
   MODIFY_POINT: 'MODIFY_POINT',
-  MOVE_POLYGON: 'MOVE_POLYGON'
+  MOVE_POLYGON: 'MOVE_POLYGON',
+  REBUILD: 'RESET',
 }
 
 /**
@@ -43,7 +35,8 @@ function createPoint(x, y) {
     x: x,
     y: y,
     ox: x,
-    oy: y
+    oy: y,
+    lines: []
   }
 }
 
@@ -68,7 +61,7 @@ function selectorReducer(state, action) {
       return { ...state, selected: newArray };
     }
 
-    case selectionActions.CREATE_POLYGON: {
+    case selectionActions.CREATE_EMPTY_POLYGON: {
       let polygon = []
       if (action.polygon !== undefined) {
         polygon = action.polygon
@@ -77,7 +70,7 @@ function selectorReducer(state, action) {
     }
 
     case selectionActions.DELETE_POLYGON: {
-      const { i } = action;
+      const i = action.i !== -1 ? action.i : state.selected.length - 1
       if (i >= 0 && i < state.selected.length) {
         const updatedSelected = [...state.selected.slice(0, i), ...state.selected.slice(i + 1)];
         return { ...state, selected: updatedSelected };
@@ -127,6 +120,11 @@ function selectorReducer(state, action) {
       }
     }
 
+    case selectionActions.REBUILD: {
+      const newAreas = action.selected;
+      return { ...state, selected: newAreas }
+    }
+
     default:
       return state
 
@@ -144,17 +142,20 @@ function selectorReducer(state, action) {
  * @param {number} props.pointRadius - The radius of points on the canvas.
  * @returns {React.ReactElement} - SVG canvas for polygon selection.
  */
+
 export default function SelectionCanvas({
   width = "100%",
   height = "100%",
   viewBox = "0 0 1000 1000",
-  editMode,
-  startingPoints = [],
   pointRadius = 7,
+  onUpdatePos = () => { },
+  startingPoints,
+  editMode,
 }) {
-  const [selectedAreas, dispatchSelection] = useReducer(selectorReducer, { selected: startingPoints })
+  const [selectedAreas, dispatchSelection] = useReducer(selectorReducer, { selected: [] })
   const [isDrawingPolygon, setDrawingState] = useState(false)
   const incompleteLine = useRef(null)
+  const rrender = useRef(0)
 
   const svgRef = useRef(null)
   const lineProps = { stroke: 'white', strokeWidth: '10' }
@@ -166,12 +167,25 @@ export default function SelectionCanvas({
    * @param {string} id - The unique ID of the point.
    */
   const updatePointPos = (x, y, id) => {
+    // onUpdatePos(selectedAreas.selected)
     dispatchSelection({
       type: selectionActions.MODIFY_POINT,
       id: id,
       x: x, y: y
     })
   }
+
+  // useEffect(() => {
+  //   const convertedStartingPoints = startingPoints.map((polygon) => polygon.map((p) => createPoint(p[0], p[1])))
+  //   dispatchSelection({ type: selectionActions.REBUILD, selected: convertedStartingPoints })
+  // }, [startingPoints])
+
+  useEffect(() => {
+    if (editMode !== editModeType.CREATE && isDrawingPolygon) {
+      setDrawingState(false)
+      dispatchSelection({ type: selectionActions.DELETE_POLYGON, i: -1 })
+    }
+  }, [editMode])
 
   /**
    * Updates the position of a polygon.
@@ -180,12 +194,13 @@ export default function SelectionCanvas({
    * @param {number} i - The index of the polygon in the selection.
    */
   const updatePolygonPos = (xoffset, yoffset, i) => {
-    dispatchSelection({
-      type: selectionActions.MOVE_POLYGON,
-      xoffset,
-      yoffset,
-      i: i,
-    })
+    if (xoffset !== 0 || yoffset !== 0)
+      dispatchSelection({
+        type: selectionActions.MOVE_POLYGON,
+        xoffset,
+        yoffset,
+        i: i,
+      })
   }
 
   /**
@@ -227,7 +242,7 @@ export default function SelectionCanvas({
       x -= pointRadius
       y -= pointRadius
       if (!isDrawingPolygon) {
-        dispatchSelection({ type: selectionActions.CREATE_POLYGON })
+        dispatchSelection({ type: selectionActions.CREATE_EMPTY_POLYGON })
         setDrawingState(true)
       }
       dispatchSelection({ type: selectionActions.ADD_POINT, i: -1, j: -1, point: createPoint(x, y) })
@@ -263,9 +278,27 @@ export default function SelectionCanvas({
     [editModeType.EDIT]: styles.editMode,
   }
 
-  const linesAndCircles = selectedAreas.selected.map((points, j) => {
-    const linesForArea = [];
-    const circlesForArea = [];
+  const bboxes = []
+  const linesAndPoints = selectedAreas.selected.map((points, j) => {
+    const line_list = [];
+    const point_list = [];
+
+    var bbox = {
+      minX: Infinity,
+      maxX: -Infinity,
+      minY: Infinity,
+      maxY: -Infinity
+    };
+
+
+    points.forEach((p) => {
+      bbox.minX = p.x < bbox.minX ? p.x : bbox.minX;
+      bbox.maxX = p.x > bbox.maxX ? p.x + pointRadius * 2 : bbox.maxX;
+      bbox.minY = p.y < bbox.minY ? p.y : bbox.minY;
+      bbox.maxY = p.y > bbox.maxY ? p.y + pointRadius * 2 : bbox.maxY;
+    });
+    bboxes.push(bbox)
+
 
     points.forEach((point, i) => {
       var nextPoint = points[(i + 1) % points.length];
@@ -294,7 +327,7 @@ export default function SelectionCanvas({
         />
       );
 
-      linesForArea.push(line);
+      line_list.push(line);
 
       var onMouseDown = (i === 0 && j === selectedAreas.selected.length - 1)
         ? finishPolygon
@@ -314,14 +347,24 @@ export default function SelectionCanvas({
           </DraggableSVGElement>
         )
 
-      circlesForArea.push(element);
+      point_list.push(element);
     });
 
-    return { lines: linesForArea, circles: circlesForArea };
+    return { lines: line_list, circles: point_list };
   });
 
-  const lines = linesAndCircles.map(entry => entry.lines);
-  const circles = linesAndCircles.map(entry => entry.circles);
+  const lines = linesAndPoints.map(entry => entry.lines);
+  const points = linesAndPoints.map(entry => entry.circles);
+
+  const labels = bboxes.map((bbox) => {
+    const x = bbox.minX + (bbox.maxX - bbox.minX) / 2
+    const y = bbox.maxY + 5
+    return (
+      <foreignObject x={x} y={y} width={200} height={50} className={styles.labels}>
+        <div>This is a test</div>
+      </foreignObject>
+    )
+  })
 
   return (
     <svg
@@ -332,14 +375,22 @@ export default function SelectionCanvas({
       onMouseMove={handleMouseMove}
       onMouseDown={handleCanvasClick}
     >
-      {circles.map((points, i) => {
-        return <DraggableGroup key={selectedAreas.selected[i][0].id} svgRef={svgRef} onFinishDragging={(diff) => updatePolygonPos(diff.x, diff.y, i)}
-          isMovable={editMode === editModeType.EDIT}>
-          <g key={selectedAreas.selected[i][0].id} className={styles.polygon + " " + modeClassMap[editMode]} onClick={() => handlePolygonClick(i)}>
-            {lines[i]}
-            {points}
-          </g>
-        </DraggableGroup>
+      {points.map((points, i) => {
+        return (
+          <>
+            <DraggableGroup
+              key={selectedAreas.selected[i][0].id}
+              svgRef={svgRef}
+              onFinishDragging={(diff) => updatePolygonPos(diff.x, diff.y, i)}
+              isMovable={editMode === editModeType.EDIT}
+            >
+              <g key={selectedAreas.selected[i][0].id} className={styles.polygon + " " + modeClassMap[editMode]} onClick={() => handlePolygonClick(i)}>
+                {lines[i]}
+                {points}
+              </g>
+            </DraggableGroup>
+          </>
+        )
       }
       )}
     </svg>
