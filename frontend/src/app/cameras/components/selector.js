@@ -143,7 +143,7 @@ function selectorReducer(state, action) {
  * @returns {React.ReactElement} - SVG canvas for polygon selection.
  */
 
-export default function SelectionCanvas({
+export function oldSelectionCanvas({
   width = "100%",
   height = "100%",
   viewBox = "0 0 1000 1000",
@@ -160,25 +160,13 @@ export default function SelectionCanvas({
   const svgRef = useRef(null)
   const lineProps = { stroke: 'white', strokeWidth: '10' }
 
-  /**
-   * Updates the position of a point.
-   * @param {number} x - The new x-coordinate.
-   * @param {number} y - The new y-coordinate.
-   * @param {string} id - The unique ID of the point.
-   */
   const updatePointPos = (x, y, id) => {
-    // onUpdatePos(selectedAreas.selected)
     dispatchSelection({
       type: selectionActions.MODIFY_POINT,
       id: id,
       x: x, y: y
     })
   }
-
-  // useEffect(() => {
-  //   const convertedStartingPoints = startingPoints.map((polygon) => polygon.map((p) => createPoint(p[0], p[1])))
-  //   dispatchSelection({ type: selectionActions.REBUILD, selected: convertedStartingPoints })
-  // }, [startingPoints])
 
   useEffect(() => {
     if (editMode !== editModeType.CREATE && isDrawingPolygon) {
@@ -187,12 +175,6 @@ export default function SelectionCanvas({
     }
   }, [editMode])
 
-  /**
-   * Updates the position of a polygon.
-   * @param {number} xoffset - The horizontal offset.
-   * @param {number} yoffset - The vertical offset.
-   * @param {number} i - The index of the polygon in the selection.
-   */
   const updatePolygonPos = (xoffset, yoffset, i) => {
     if (xoffset !== 0 || yoffset !== 0)
       dispatchSelection({
@@ -203,12 +185,6 @@ export default function SelectionCanvas({
       })
   }
 
-  /**
-   * Moves the lines of a polygon while dragging a point.
-   * @param {number} x - The x-coordinate of the dragged point.
-   * @param {number} y - The y-coordinate of the dragged point.
-   * @param {Array} lines - Array of lines associated with the dragged point.
-   */
   const moveLine = (x, y, lines) => {
     if (lines[0] !== null) {
       lines[0].setAttribute('x2', x + pointRadius)
@@ -220,10 +196,6 @@ export default function SelectionCanvas({
     }
   }
 
-  /**
-   * Handles mouse move events while drawing a polygon.
-   * @param {Object} e - Mouse event object.
-   */
   const handleMouseMove = (e) => {
     if (isDrawingPolygon && incompleteLine.current !== null) {
       const newPos = calcVBOXCoords({ x: e.clientX, y: e.clientY }, svgRef.current)
@@ -232,10 +204,6 @@ export default function SelectionCanvas({
     }
   }
 
-  /**
-   * Handles mouse click events on the canvas.
-   * @param {Object} e - Mouse event object.
-   */
   const handleCanvasClick = (e) => {
     if (e.button === 0 && editMode === editModeType.CREATE) {
       var { x, y } = calcVBOXCoords({ x: e.clientX, y: e.clientY }, svgRef.current)
@@ -249,19 +217,11 @@ export default function SelectionCanvas({
     }
   }
 
-  /**
-   * Handles finishing the drawing of a polygon.
-   * @param {Object} e - Mouse event object.
-   */
   const finishPolygon = (e) => {
     e.stopPropagation()
     setDrawingState(false)
   }
 
-  /**
-   * Handles clicking on a polygon.
-   * @param {number} i - Index of the clicked polygon.
-   */
   const handlePolygonClick = (i) => {
     switch (editMode) {
       case editModeType.DELETE:
@@ -396,3 +356,4 @@ export default function SelectionCanvas({
     </svg>
   )
 }
+

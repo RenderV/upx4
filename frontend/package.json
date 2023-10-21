@@ -26,5 +26,8 @@
     "react-zoom-pan-pinch": "^3.1.0",
     "uuid": "^9.0.0",
     "video.js": "^8.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "20.8.7"
   }
 }
