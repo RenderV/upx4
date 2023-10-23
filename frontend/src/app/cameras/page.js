@@ -90,7 +90,8 @@ export default function Home() {
               width="1280px"
               height="720px"
               viewBox="0 0 1000 1000"
-              initialSelections={initialSelections}
+              initialSelections={[]}
+              editMode='add'
             />
           </div>
         </TransformComponent>

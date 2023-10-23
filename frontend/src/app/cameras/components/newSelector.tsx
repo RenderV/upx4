@@ -1,8 +1,155 @@
-import { v4 as uuidv4 } from 'uuid'
-import React, { ForwardedRef, RefCallback } from 'react';
+import React, { MouseEventHandler, createContext, useContext, useReducer } from 'react';
 import { RefObject, useEffect, useRef, useState } from 'react';
-import { Coords2D, Point, SelectionType, SVGPointProps, SVGSelectorProps, SVGSelectionProps, MouseEventHandler, SVGLineProps, MovableSVGElementProps, LineType, CoordEventHandler } from "./types"
-import { useDrag, calcVBOXCoords, createRelMovementHandler, addToAttribute, addToPoint, imperativeMoveSiblings } from './newUtils';
+import { Coords2D, Point, SelectionType, SVGPointProps, SVGSelectorProps, SVGSelectionProps, SVGLineProps, MovableSVGElementProps, LineType, CoordEventHandler, GenericMap, SelectionContextType, EditMode, customClickBehavior } from "./types"
+import { calcVBOXCoords, createRelMovementHandler, addToAttribute, addToPoint, imperativeMoveSiblings, createPoint } from './newUtils';
+
+export const SelectionContext = createContext<SelectionContextType | null>(null)
+
+enum SelectionActions {
+    ADD_POINT = 'ADD_POINT',
+    CREATE_POLYGON = 'CREATE_POLYGON',
+    DELETE_POLYGON = 'DELETE_POLYGON',
+    MODIFY_POINT = 'MODIFY_POINT',
+    DELETE_POINT = 'DELETE_POINT',
+    MOVE_POLYGON = 'MOVE_POLYGON',
+    REBUILD = 'REBUILD',
+    SET_DRAWING = 'SET_DRAWING'
+}
+
+interface AddPointAction {
+    type: SelectionActions.ADD_POINT;
+    point: Point;
+}
+
+interface CreatePolygonAction {
+    type: SelectionActions.CREATE_POLYGON;
+    label: string;
+    polygon: Point[];
+}
+
+interface DeletePolygonAction {
+    type: SelectionActions.DELETE_POLYGON;
+    polygonIdx: number;
+}
+
+interface ModifyPointAction {
+    type: SelectionActions.MODIFY_POINT;
+    id: string;
+    x: number;
+    y: number;
+}
+
+interface DeletePointAction {
+    type: SelectionActions.DELETE_POINT;
+    id: string;
+}
+
+interface MovePolygonAction {
+    type: SelectionActions.MOVE_POLYGON;
+    polygonIdx: number;
+    xoffset: number;
+    yoffset: number;
+}
+
+interface RebuildAction {
+    type: SelectionActions.REBUILD;
+    newSelections: SelectionType[];
+}
+
+interface DrawingAction {
+    type: SelectionActions.SET_DRAWING;
+    isDrawing: boolean;
+}
+
+type SelectionAction =
+    | AddPointAction
+    | CreatePolygonAction
+    | DeletePolygonAction
+    | ModifyPointAction
+    | DeletePointAction
+    | MovePolygonAction
+    | RebuildAction
+    | DrawingAction;
+
+interface SelectionState {
+    selections: SelectionType[];
+    isDrawing: boolean;
+}
+
+function selectorReducer(state: SelectionState, action: SelectionAction) {
+    switch (action.type) {
+        case SelectionActions.ADD_POINT: {
+            const { selections } = state;
+            const updatedSelections = selections.slice();
+            updatedSelections[selections.length - 1].points.push(action.point);
+            return { ...state, selections: updatedSelections };
+        }
+        case SelectionActions.CREATE_POLYGON: {
+            const { selections } = state;
+            const updatedSelections = selections.slice();
+            updatedSelections.push({ points: action.polygon, label: action.label });
+            return { ...state, selections: updatedSelections };
+        }
+        case SelectionActions.DELETE_POINT: {
+            const { selections } = state;
+            const updatedSelections = selections.map(selection => {
+                return { ...selection, points: selection.points.filter(point => point.objId !== action.id) };
+            });
+            return { ...state, selections: updatedSelections };
+        }
+        case SelectionActions.DELETE_POLYGON: {
+            const { selections } = state;
+            const updatedSelections = selections.slice();
+            updatedSelections.splice(action.polygonIdx, 1);
+            return { ...state, selections: updatedSelections };
+        }
+        case SelectionActions.MODIFY_POINT: {
+            const { selections } = state;
+            const updatedSelections = selections.map(selection => {
+                return {
+                    ...selection,
+                    points: selection.points.map(point => {
+                        if (point.objId === action.id) {
+                            return {
+                                ...point,
+                                x: action.x,
+                                y: action.y,
+                            };
+                        }
+                        return point;
+                    }),
+                };
+            });
+            return { ...state, selections: updatedSelections };
+        }
+        case SelectionActions.MOVE_POLYGON: {
+            const { selections } = state;
+            const updatedSelections = selections.slice();
+            const polygonToMove = updatedSelections[action.polygonIdx];
+
+            if (polygonToMove) {
+                polygonToMove.points = polygonToMove.points.map(point => ({
+                    ...point,
+                    x: point.x + action.xoffset,
+                    y: point.y + action.yoffset,
+                }));
+            }
+
+            return { ...state, selections: updatedSelections };
+        }
+
+        case SelectionActions.REBUILD: {
+            return { ...state, selections: action.newSelections };
+        }
+
+        case SelectionActions.SET_DRAWING: {
+            return { ...state, isDrawing: action.isDrawing }
+        }
+
+        default:
+            return state;
+    }
+}
 
 export const MovableSVGElement = (
     {
@@ -12,7 +159,6 @@ export const MovableSVGElement = (
         onStartMoving,
         onMove,
         onFinishMoving,
-        svgParent,
         allowMovement,
         Xattributes,
         Yattributes,
@@ -21,7 +167,10 @@ export const MovableSVGElement = (
     }: MovableSVGElementProps) => {
 
     const [position, setPosition] = useState<Array<Coords2D>>(coords)
-    const elRef = useRef(null)
+    const elRef = useRef<Element | null>(null)
+    const svgParent = useContext(SelectionContext)?.SVGRef
+    if (!svgParent)
+        throw new Error("svg parent must have a valid ref")
 
     useEffect(() => {
         setPosition(coords)
@@ -73,7 +222,7 @@ export const MovableSVGElement = (
         cvtPos
     )
 
-    const positionProps = {}
+    const positionProps: GenericMap<number> = {}
 
     Xattributes.forEach((attributeName, i) => {
         positionProps[attributeName] = position[i].x
@@ -87,6 +236,7 @@ export const MovableSVGElement = (
             ...children.props,
             ...positionProps,
             onMouseDown: (e: React.MouseEvent) => {
+                e.stopPropagation()
                 handleMouseDown(e);
                 if (onMouseDown) onMouseDown(e)
             },
@@ -104,7 +254,6 @@ export function SelectorPoint({
     onMove,
     onFinishMoving,
     onMouseDown,
-    svgParent,
     allowMovement,
 }: SVGPointProps) {
     const pointRadius = 7
@@ -123,7 +272,6 @@ export function SelectorPoint({
             Xattributes={["x"]}
             Yattributes={["y"]}
             coords={[{ x: point.x - pointRadius, y: point.y - pointRadius }]}
-            svgParent={svgParent}
             allowMovement={allowMovement}
             onMove={moveLine}
             onFinishMoving={onFinishMoving}
@@ -137,24 +285,22 @@ export function SelectorPoint({
     )
 }
 
-export function SelectorLine(
+export const SelectorLine = React.forwardRef((
     {
         coords,
         refCallback,
         onStartMoving,
         onMove,
         onFinishMoving,
-        svgParent,
         allowMovement,
         followMouse
-    }: SVGLineProps,
-) {
+    }: SVGLineProps, ref
+) => {
     return (
         <MovableSVGElement
             Xattributes={["x1", "x2"]}
             Yattributes={["y1", "y2"]}
             coords={coords}
-            svgParent={svgParent}
             allowMovement={allowMovement}
             refCallback={refCallback}
             onMove={onMove}
@@ -165,13 +311,13 @@ export function SelectorLine(
         </MovableSVGElement>
     );
 }
+)
 
 
 export function Selection({
     onStartMoving,
     onMove,
     onFinishMoving,
-    svgParent,
     allowMovement,
     points,
     openLineRefCallback,
@@ -204,7 +350,7 @@ export function Selection({
         )
     }
 
-    const handleImperativeIntermediateMovement: CoordEventHandler = imperativeMoveSiblings
+    const handleIntermediateMovement: CoordEventHandler = imperativeMoveSiblings
     const handlePolygonStateUpdate: CoordEventHandler = (coords) => {
         setPoints((oldPoints) => {
             const newPoints = oldPoints.map((oldPoint) => {
@@ -228,11 +374,10 @@ export function Selection({
                     return (
                         <SelectorLine
                             coords={coords}
-                            svgParent={svgParent}
                             allowMovement={allowMovement && !isOpen}
                             followMouse={false}
                             refCallback={line.refCallback}
-                            onMove={handleImperativeIntermediateMovement}
+                            onMove={handleIntermediateMovement}
                             onFinishMoving={handlePolygonStateUpdate}
                         />
                     )
@@ -242,7 +387,6 @@ export function Selection({
                 currentPoints.map((point, i) => (
                     <SelectorPoint
                         point={point}
-                        svgParent={svgParent}
                         allowMovement={allowMovement}
                         key={point.objId}
                         onFinishMoving={(coords) => {
@@ -263,10 +407,15 @@ export function Selector({
     width,
     height,
     viewBox,
-    initialSelections
+    initialSelections,
+    editMode
 }: SVGSelectorProps) {
     const svgRef = useRef<SVGSVGElement | null>(null)
-    const [selections, setSelections] = useState(initialSelections)
+
+    if (typeof initialSelections === "undefined")
+        initialSelections = []
+
+    const [selections, dispatchSelections] = useReducer(selectorReducer, { selections: initialSelections, isDrawing: false })
     const openLineRef = useRef<Element | null>(null)
 
     const handleOpenLine = (node: Element) => {
@@ -280,6 +429,32 @@ export function Selector({
         openLineRef.current.setAttribute("y2", String(vboxCoords.y))
     }
 
+    const clickMap: customClickBehavior = {
+        [EditMode.ADD]: (e) => {
+            e.stopPropagation()
+            if (e.button === 0) {
+                if (!selections.isDrawing) {
+                    dispatchSelections({ type: SelectionActions.SET_DRAWING, isDrawing: true })
+                    dispatchSelections({ type: SelectionActions.CREATE_POLYGON, polygon: [], label: "" })
+                }
+                dispatchSelections({
+                    type: SelectionActions.ADD_POINT,
+                    point: createPoint(calcVBOXCoords({
+                        x: e.clientX,
+                        y: e.clientY
+                    }, svgRef.current))
+                })
+            }
+        },
+        [EditMode.BLOCK]: (e) => { },
+        [EditMode.DELETE]: (e) => { },
+        [EditMode.EDIT]: (e) => { }
+    }
+
+    const handleCanvasClick: MouseEventHandler = (e) => {
+        clickMap[editMode](e)
+    }
+
     return (
         <svg
             width={width}
@@ -287,16 +462,18 @@ export function Selector({
             viewBox={viewBox}
             ref={svgRef}
             onMouseMove={handleMouseMove}
+            onMouseDown={handleCanvasClick}
         >
-            {selections.map((selection, i) => (
-                <Selection
-                    svgParent={svgRef}
-                    allowMovement={true}
-                    points={selection.points}
-                    isOpen={(i === selections.length - 1)}
-                    openLineRefCallback={handleOpenLine}
-                />
-            ))}
+            <SelectionContext.Provider value={{ SVGRef: svgRef, editMode: editMode }}>
+                {selections.selections.map((selection, i) => (
+                    <Selection
+                        allowMovement={true}
+                        points={selection.points}
+                        isOpen={i === selections.selections.length-1 && selections.isDrawing}
+                        openLineRefCallback={handleOpenLine}
+                    />
+                ))}
+            </SelectionContext.Provider>
         </svg>
     )
 }

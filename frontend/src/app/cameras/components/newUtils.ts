@@ -1,5 +1,6 @@
-import { MouseEventHandler, Coords2D, Point, GenericMap } from "./types";
+import { MouseEventHandler, Coords2D, Point, GenericMap, CoordEventHandler } from "./types";
 import { useState, useRef } from "react";
+import { v4 as uuidv4 } from 'uuid';
 import { RefObject } from "react";
 
 export const mapRange = (
@@ -191,8 +192,13 @@ export function addToPoint(point: Point, { x, y }: Coords2D): Point {
     };
 }
 
-export function imperativeMoveSiblings(distance: Coords2D, node: Element | null) {
+export function imperativeMoveSiblings(distance: Coords2D, node?: Element | null) {
+
     if(!node) return
+    if(!node.parentElement){
+        throw Error("Element must have a parent element")
+    }
+
     const attributeMap: GenericMap<{ x: string[], y: string[] }> = {
         "line": {
             "x": ["x1", "x2"],
@@ -227,4 +233,15 @@ export function imperativeMoveSiblings(distance: Coords2D, node: Element | null)
             }
         }
     });
+}
+
+export function createPoint(coord: Coords2D): Point{
+    return {
+        objId: uuidv4(),
+        x: coord.x,
+        y: coord.y,
+        ox: coord.x,
+        oy: coord.y,
+        lines: [null, null]
+    }
 }

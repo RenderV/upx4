@@ -24,10 +24,11 @@
     "react-dom": "18.2.0",
     "react-player": "^2.13.0",
     "react-zoom-pan-pinch": "^3.1.0",
-    "uuid": "^9.0.0",
+    "uuid": "^9.0.1",
     "video.js": "^8.6.0"
   },
   "devDependencies": {
-    "@types/node": "20.8.7"
+    "@types/node": "20.8.7",
+    "@types/uuid": "^9.0.6"
   }
 }
