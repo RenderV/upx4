@@ -21,6 +21,7 @@ export declare type Point = {
 export declare type LineType = {
     position: [Coords2D, Coords2D]
     refCallback: (arg: any) => void
+    id: string
 }
 
 export declare type SelectionType = {
@@ -28,21 +29,22 @@ export declare type SelectionType = {
     label: string;
 }
 
-export declare type CoordEventHandler = (coords: Coords2D, node?: Element | null) => void
+export declare type CoordEventHandler = (coords: Coords2D, node?: Element | null, e?: React.MouseEvent) => void
 
-export enum EditMode{
+export enum EditMode {
     ADD = "add",
     EDIT = "edit",
-    BLOCK = "block",
-    DELETE = "delete"
+    DELETE = "delete",
+    HIDE = "hide",
+    DEFAULT = "default"
 }
 
 export declare interface CommonProps {
     allowMovement: boolean;
     onStartMoving?: CoordEventHandler;
-    onMove?: CoordEventHandler;
-    onFinishMoving?: CoordEventHandler;
-    onMouseDown?: React.MouseEventHandler;
+    onMove?: CoordEventHandler | null;
+    onFinishMoving?: CoordEventHandler | null;
+    onMouseDown?: CoordEventHandler | null;
 }
 
 export declare interface MovableSVGElementProps extends CommonProps {
@@ -52,6 +54,7 @@ export declare interface MovableSVGElementProps extends CommonProps {
     coords: Coords2D[];
     refCallback?: ((node: Element) => void);
     customOffset?: number;
+    propagate?: boolean;
 }
 
 export declare interface SVGPointProps extends CommonProps {
@@ -61,7 +64,7 @@ export declare interface SVGPointProps extends CommonProps {
 
 export declare interface SVGLineProps extends CommonProps {
     coords: [Coords2D, Coords2D];
-    followMouse: boolean;
+    propagate: boolean;
     refCallback?: ((node: Element) => void);
 }
 
@@ -69,6 +72,16 @@ export declare interface SVGSelectionProps extends CommonProps {
     points: Array<Point>;
     isOpen: boolean;
     openLineRefCallback?: ((node: Element) => void);
+    onClose?: () => void
+}
+
+export declare interface LabelProps extends CommonProps {
+    text: string
+    setName: React.Dispatch<React.SetStateAction<string>>
+    coords: Coords2D
+    clickable: boolean
+    width?: number
+    height?: number
 }
 
 export declare interface SVGSelectorProps {
@@ -77,13 +90,42 @@ export declare interface SVGSelectorProps {
     viewBox: string;
     initialSelections?: Array<SelectionType>;
     editMode: EditMode;
+    onKeyDown?: React.KeyboardEventHandler
 }
 
 export declare type SelectionContextType = {
-    SVGRef: React.RefObject<SVGSVGElement | null>|null;
+    SVGRef: React.RefObject<SVGSVGElement | null> | null;
     editMode: EditMode;
 }
 
-export declare type customClickBehavior = {
-    [key in EditMode]: MouseEventHandler;
+export declare type AllowedAction = "SELECTION_MOVEMENT" |
+                                    "SELECTION_CREATION" |
+                                    "SELECTION_DELETION" |
+                                    "VIEW"               |
+                                    "VIEW_MOVEMENT"
+
+export declare type ModeMapType = {
+    [key in EditMode]: {
+        allowedActions: Array<AllowedAction>
+        shortcuts: Array<string>
+    };
+}
+
+export declare interface MenuItemProps {
+    Icon: React.ElementType;
+    title: string;
+    onClick: () => void;
+    className: string;
+}
+
+export declare interface CanvasControllerProps {
+    editMode: EditMode;
+    setEditMode: (mode: EditMode) => void;
+}
+
+export declare type EditModeButton = {
+    icon: React.ElementType
+    label: string
+    mode: EditMode
+    labelInactive?: string
 }

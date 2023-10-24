@@ -1,155 +1,36 @@
 import React, { MouseEventHandler, createContext, useContext, useReducer } from 'react';
 import { RefObject, useEffect, useRef, useState } from 'react';
-import { Coords2D, Point, SelectionType, SVGPointProps, SVGSelectorProps, SVGSelectionProps, SVGLineProps, MovableSVGElementProps, LineType, CoordEventHandler, GenericMap, SelectionContextType, EditMode, customClickBehavior } from "./types"
-import { calcVBOXCoords, createRelMovementHandler, addToAttribute, addToPoint, imperativeMoveSiblings, createPoint } from './newUtils';
+import { Coords2D, Point, SelectionType, SVGPointProps, SVGSelectorProps, SVGSelectionProps, SVGLineProps, MovableSVGElementProps, LineType, CoordEventHandler, GenericMap, SelectionContextType, EditMode, ModeMapType, LabelProps } from "../types"
+import { calcVBOXCoords, createRelMovementHandler, addToAttribute, addToPoint, imperativeMoveSiblings, createPoint } from './utils';
+import { Chip } from '@mui/material';
+import LabelModal from './labelmodal';
+import styles from "./selector.module.css"
 
 export const SelectionContext = createContext<SelectionContextType | null>(null)
 
-enum SelectionActions {
-    ADD_POINT = 'ADD_POINT',
-    CREATE_POLYGON = 'CREATE_POLYGON',
-    DELETE_POLYGON = 'DELETE_POLYGON',
-    MODIFY_POINT = 'MODIFY_POINT',
-    DELETE_POINT = 'DELETE_POINT',
-    MOVE_POLYGON = 'MOVE_POLYGON',
-    REBUILD = 'REBUILD',
-    SET_DRAWING = 'SET_DRAWING'
-}
+export const modeMap: ModeMapType = {
+    [EditMode.DEFAULT]: {
+        allowedActions: ["VIEW", "VIEW_MOVEMENT"],
+        shortcuts: ["Escape", "b", "5"]
+    },
+    [EditMode.ADD]: {
+        allowedActions: ["VIEW", "SELECTION_MOVEMENT", "SELECTION_CREATION"],
+        shortcuts: ["a", "1"]
+    },
+    [EditMode.EDIT]: {
+        allowedActions: ["VIEW", "VIEW_MOVEMENT", "SELECTION_MOVEMENT"],
+        shortcuts: ["e", "2"]
+    },
+    [EditMode.DELETE]: {
+        allowedActions: ["VIEW", "VIEW_MOVEMENT", "SELECTION_DELETION"],
+        shortcuts: ["d", "3"]
+    },
+    [EditMode.HIDE]: {
+        allowedActions: ["VIEW_MOVEMENT"],
+        shortcuts: ["h", "4"]
+    },
+};
 
-interface AddPointAction {
-    type: SelectionActions.ADD_POINT;
-    point: Point;
-}
-
-interface CreatePolygonAction {
-    type: SelectionActions.CREATE_POLYGON;
-    label: string;
-    polygon: Point[];
-}
-
-interface DeletePolygonAction {
-    type: SelectionActions.DELETE_POLYGON;
-    polygonIdx: number;
-}
-
-interface ModifyPointAction {
-    type: SelectionActions.MODIFY_POINT;
-    id: string;
-    x: number;
-    y: number;
-}
-
-interface DeletePointAction {
-    type: SelectionActions.DELETE_POINT;
-    id: string;
-}
-
-interface MovePolygonAction {
-    type: SelectionActions.MOVE_POLYGON;
-    polygonIdx: number;
-    xoffset: number;
-    yoffset: number;
-}
-
-interface RebuildAction {
-    type: SelectionActions.REBUILD;
-    newSelections: SelectionType[];
-}
-
-interface DrawingAction {
-    type: SelectionActions.SET_DRAWING;
-    isDrawing: boolean;
-}
-
-type SelectionAction =
-    | AddPointAction
-    | CreatePolygonAction
-    | DeletePolygonAction
-    | ModifyPointAction
-    | DeletePointAction
-    | MovePolygonAction
-    | RebuildAction
-    | DrawingAction;
-
-interface SelectionState {
-    selections: SelectionType[];
-    isDrawing: boolean;
-}
-
-function selectorReducer(state: SelectionState, action: SelectionAction) {
-    switch (action.type) {
-        case SelectionActions.ADD_POINT: {
-            const { selections } = state;
-            const updatedSelections = selections.slice();
-            updatedSelections[selections.length - 1].points.push(action.point);
-            return { ...state, selections: updatedSelections };
-        }
-        case SelectionActions.CREATE_POLYGON: {
-            const { selections } = state;
-            const updatedSelections = selections.slice();
-            updatedSelections.push({ points: action.polygon, label: action.label });
-            return { ...state, selections: updatedSelections };
-        }
-        case SelectionActions.DELETE_POINT: {
-            const { selections } = state;
-            const updatedSelections = selections.map(selection => {
-                return { ...selection, points: selection.points.filter(point => point.objId !== action.id) };
-            });
-            return { ...state, selections: updatedSelections };
-        }
-        case SelectionActions.DELETE_POLYGON: {
-            const { selections } = state;
-            const updatedSelections = selections.slice();
-            updatedSelections.splice(action.polygonIdx, 1);
-            return { ...state, selections: updatedSelections };
-        }
-        case SelectionActions.MODIFY_POINT: {
-            const { selections } = state;
-            const updatedSelections = selections.map(selection => {
-                return {
-                    ...selection,
-                    points: selection.points.map(point => {
-                        if (point.objId === action.id) {
-                            return {
-                                ...point,
-                                x: action.x,
-                                y: action.y,
-                            };
-                        }
-                        return point;
-                    }),
-                };
-            });
-            return { ...state, selections: updatedSelections };
-        }
-        case SelectionActions.MOVE_POLYGON: {
-            const { selections } = state;
-            const updatedSelections = selections.slice();
-            const polygonToMove = updatedSelections[action.polygonIdx];
-
-            if (polygonToMove) {
-                polygonToMove.points = polygonToMove.points.map(point => ({
-                    ...point,
-                    x: point.x + action.xoffset,
-                    y: point.y + action.yoffset,
-                }));
-            }
-
-            return { ...state, selections: updatedSelections };
-        }
-
-        case SelectionActions.REBUILD: {
-            return { ...state, selections: action.newSelections };
-        }
-
-        case SelectionActions.SET_DRAWING: {
-            return { ...state, isDrawing: action.isDrawing }
-        }
-
-        default:
-            return state;
-    }
-}
 
 export const MovableSVGElement = (
     {
@@ -163,7 +44,7 @@ export const MovableSVGElement = (
         Xattributes,
         Yattributes,
         onMouseDown,
-
+        propagate = false,
     }: MovableSVGElementProps) => {
 
     const [position, setPosition] = useState<Array<Coords2D>>(coords)
@@ -199,7 +80,7 @@ export const MovableSVGElement = (
             Yattributes.forEach((attributeName) => {
                 addToAttribute(elementNode, attributeName, totalMovement.y)
             })
-            if (typeof onMove !== 'undefined')
+            if (onMove)
                 onMove(totalMovement, elRef.current)
         }
     }
@@ -210,7 +91,8 @@ export const MovableSVGElement = (
             y: pos.y + totalMovement.y
         }));
         if (typeof onFinishMoving !== 'undefined')
-            onFinishMoving(totalMovement)
+            if (onFinishMoving)
+                onFinishMoving(totalMovement, elRef.current)
         setPosition(updatedPositions)
     };
 
@@ -236,9 +118,10 @@ export const MovableSVGElement = (
             ...children.props,
             ...positionProps,
             onMouseDown: (e: React.MouseEvent) => {
-                e.stopPropagation()
+                if (!propagate)
+                    e.stopPropagation()
                 handleMouseDown(e);
-                if (onMouseDown) onMouseDown(e)
+                if (onMouseDown) onMouseDown({ x: e.clientX, y: e.clientY })
             },
             ref: (node: Element) => {
                 elRef.current = node
@@ -275,6 +158,7 @@ export function SelectorPoint({
             allowMovement={allowMovement}
             onMove={moveLine}
             onFinishMoving={onFinishMoving}
+            onMouseDown={onMouseDown}
         >
             <rect
                 width={pointRadius * 2}
@@ -285,7 +169,7 @@ export function SelectorPoint({
     )
 }
 
-export const SelectorLine = React.forwardRef((
+export const SelectorLine = (
     {
         coords,
         refCallback,
@@ -293,8 +177,9 @@ export const SelectorLine = React.forwardRef((
         onMove,
         onFinishMoving,
         allowMovement,
-        followMouse
-    }: SVGLineProps, ref
+        onMouseDown,
+        propagate: followMouse
+    }: SVGLineProps
 ) => {
     return (
         <MovableSVGElement
@@ -306,25 +191,93 @@ export const SelectorLine = React.forwardRef((
             onMove={onMove}
             onFinishMoving={onFinishMoving}
             onStartMoving={onStartMoving}
+            onMouseDown={onMouseDown}
+            propagate={followMouse}
         >
-            <line stroke="white" strokeWidth={10} />
+            <line className={styles.line} stroke="white" strokeWidth={10} />
         </MovableSVGElement>
     );
 }
-)
+
+export function Label({
+    text,
+    setName,
+    coords,
+    allowMovement,
+    onMove,
+    onStartMoving,
+    onFinishMoving,
+    clickable,
+    width = 100,
+    height = 30
+}: LabelProps) {
+    const className = clickable ? styles.labels : `${styles.labels} ${styles.nopointerevents}`
+    const [open, setOpen] = useState(false)
+    const handleKeyboardEvent: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
+        e.stopPropagation();
+        if (e.key === "Enter") {
+            const inputElement = e.target as HTMLInputElement;
+            setName(inputElement.value);
+            setOpen(false);
+        } else if (e.key === "Escape") {
+            setOpen(false)
+        }
+    };
+
+
+    return (
+        <>
+            <MovableSVGElement
+                Xattributes={["x"]}
+                Yattributes={["y"]}
+                coords={[coords]}
+                allowMovement={allowMovement}
+                onStartMoving={onStartMoving}
+                onMove={onMove}
+                onFinishMoving={onFinishMoving}
+            >
+                <foreignObject className={className} width={width} height={height} onDoubleClick={(e) => { e.stopPropagation(); setOpen(true) }}>
+                    <Chip label={text} />
+                </foreignObject>
+            </MovableSVGElement>
+            <LabelModal open={open} setOpen={setOpen} label={text} onKeyDown={handleKeyboardEvent} />
+        </>
+    )
+}
 
 
 export function Selection({
     onStartMoving,
     onMove,
     onFinishMoving,
+    onMouseDown,
     allowMovement,
     points,
     openLineRefCallback,
-    isOpen
+    isOpen,
+    onClose,
 }: SVGSelectionProps) {
     const pointRadius = 7;
     const [currentPoints, setPoints] = useState<Array<Point>>(points)
+    const [labelOffset, setLabelOffset] = useState<Coords2D>({ x: 0, y: 0 })
+    const [labelName, setLabelName] = useState<string>("slk")
+
+    var bbox = {
+        minX: Infinity,
+        maxX: -Infinity,
+        minY: Infinity,
+        maxY: -Infinity
+    };
+
+    currentPoints.forEach((p) => {
+        bbox.minX = p.x < bbox.minX ? p.x : bbox.minX;
+        bbox.maxX = p.x > bbox.maxX ? p.x + pointRadius * 2 : bbox.maxX;
+        bbox.minY = p.y < bbox.minY ? p.y : bbox.minY;
+        bbox.maxY = p.y > bbox.maxY ? p.y + pointRadius * 2 : bbox.maxY;
+    });
+
+    const labelPos = { x: bbox.minX + (bbox.maxX - bbox.minX) / 2 + labelOffset.x, y: bbox.maxY + 5 + labelOffset.y }
+
     const lineCoords: Array<LineType> = []
 
     for (var i = 0; i < currentPoints.length; i++) {
@@ -345,39 +298,65 @@ export function Selection({
             refCallback: (node: Element) => {
                 thisPoint.lines[1] = node
                 nextPoint.lines[0] = node
-            }
+            },
+            id: `line-${thisPoint.objId}-${nextPoint.objId}`
         }
         )
     }
 
     const handleIntermediateMovement: CoordEventHandler = imperativeMoveSiblings
     const handlePolygonStateUpdate: CoordEventHandler = (coords) => {
-        setPoints((oldPoints) => {
-            const newPoints = oldPoints.map((oldPoint) => {
-                return addToPoint(oldPoint, coords)
-            })
-            return newPoints
-        })
+        const newPoints = currentPoints.map((p) => addToPoint(p, coords))
+        setPoints(newPoints)
+    }
+
+    const handleStartLabelMovement: CoordEventHandler = (coords, elNode) => {
+        if (elNode) elNode.classList.add(styles.moving)
+    }
+
+    const handleLabelStateUpdate: CoordEventHandler = (coords, elNode) => {
+        setLabelOffset({ x: labelOffset.x + coords.x, y: labelOffset.y + coords.y })
+        if (elNode) elNode.classList.remove(styles.moving)
+    }
+
+    const handleGroupMouseDown: CoordEventHandler = (coords) => {
+        if (onMouseDown)
+            onMouseDown(coords)
+    }
+
+    const handlePointMouseDown = (coords: Coords2D, i: number) => {
+        if (onMouseDown)
+            onMouseDown(coords)
+        if (onClose && isOpen && i === 0) onClose()
     }
 
     if (isOpen && openLineRefCallback) {
         lineCoords[lineCoords.length - 1].refCallback = (node: Element) => {
             openLineRefCallback(node)
         }
+        lineCoords[lineCoords.length - 1].position[1] = lineCoords[lineCoords.length - 1].position[0]
     }
 
     return (
         <g>
+            <Label text={labelName} setName={setLabelName} coords={labelPos}
+                allowMovement={allowMovement}
+                onStartMoving={handleStartLabelMovement}
+                onFinishMoving={handleLabelStateUpdate}
+                clickable={!isOpen}
+            />
             {
                 lineCoords.map((line, i) => {
                     const coords = line.position
                     return (
                         <SelectorLine
                             coords={coords}
+                            key={line.id}
                             allowMovement={allowMovement && !isOpen}
-                            followMouse={false}
+                            propagate={isOpen}
                             refCallback={line.refCallback}
                             onMove={handleIntermediateMovement}
+                            onMouseDown={handleGroupMouseDown}
                             onFinishMoving={handlePolygonStateUpdate}
                         />
                     )
@@ -389,6 +368,7 @@ export function Selection({
                         point={point}
                         allowMovement={allowMovement}
                         key={point.objId}
+                        onMouseDown={(coords) => handlePointMouseDown(coords, i)}
                         onFinishMoving={(coords) => {
                             setPoints((oldArr) => {
                                 var newArr = [...oldArr]
@@ -399,24 +379,29 @@ export function Selection({
                     />
                 ))
             }
+
         </g>
     )
 }
 
-export function Selector({
+export default function Selector({
     width,
     height,
     viewBox,
     initialSelections,
-    editMode
+    editMode,
+    onKeyDown
 }: SVGSelectorProps) {
     const svgRef = useRef<SVGSVGElement | null>(null)
-
+    if (svgRef.current)
+        svgRef.current.focus()
+    const mode = modeMap[editMode]
     if (typeof initialSelections === "undefined")
         initialSelections = []
-
-    const [selections, dispatchSelections] = useReducer(selectorReducer, { selections: initialSelections, isDrawing: false })
+    const [selections, setSelections] = useState(initialSelections)
+    const [isDrawing, setDrawingState] = useState(false)
     const openLineRef = useRef<Element | null>(null)
+
 
     const handleOpenLine = (node: Element) => {
         openLineRef.current = node
@@ -429,30 +414,46 @@ export function Selector({
         openLineRef.current.setAttribute("y2", String(vboxCoords.y))
     }
 
-    const clickMap: customClickBehavior = {
-        [EditMode.ADD]: (e) => {
+    useEffect(() => {
+        if (!mode.allowedActions.includes("SELECTION_CREATION"))
+            setDrawingState(false)
+    }, [editMode])
+
+    const handleCanvasMouseDown: MouseEventHandler = (e) => {
+        if (!mode.allowedActions.includes("VIEW_MOVEMENT") && isDrawing)
             e.stopPropagation()
-            if (e.button === 0) {
-                if (!selections.isDrawing) {
-                    dispatchSelections({ type: SelectionActions.SET_DRAWING, isDrawing: true })
-                    dispatchSelections({ type: SelectionActions.CREATE_POLYGON, polygon: [], label: "" })
-                }
-                dispatchSelections({
-                    type: SelectionActions.ADD_POINT,
-                    point: createPoint(calcVBOXCoords({
-                        x: e.clientX,
-                        y: e.clientY
-                    }, svgRef.current))
-                })
+        if (e.button === 0 && mode.allowedActions.includes("SELECTION_CREATION")) {
+            const point = createPoint(calcVBOXCoords({ x: e.clientX, y: e.clientY }, svgRef.current));
+            if (!isDrawing) {
+                setDrawingState(true);
+                setSelections([...selections, { points: [point], label: "" }]);
+            } else {
+                const newSelections = [...selections];
+                newSelections[newSelections.length - 1].points.push(point);
+                setSelections(newSelections);
             }
-        },
-        [EditMode.BLOCK]: (e) => { },
-        [EditMode.DELETE]: (e) => { },
-        [EditMode.EDIT]: (e) => { }
+        }
     }
 
-    const handleCanvasClick: MouseEventHandler = (e) => {
-        clickMap[editMode](e)
+    const handleGroupMouseDown = (idx: number) => {
+        if (!mode.allowedActions.includes("SELECTION_DELETION")) return
+        const newSelections = [...selections]
+        newSelections.splice(idx, 1)
+        setSelections(newSelections)
+    }
+
+    var completeSelections: Array<SelectionType> = selections
+    var incompleteSelection: SelectionType | null = null
+    var IncompleteSelection: React.JSX.Element | null = null
+
+    if (isDrawing) {
+        incompleteSelection = selections[selections.length - 1]
+        completeSelections = selections.slice(0, -1)
+        IncompleteSelection = <Selection allowMovement={false}
+            points={incompleteSelection.points}
+            isOpen={true}
+            onClose={() => setDrawingState(false)}
+            openLineRefCallback={handleOpenLine} />
     }
 
     return (
@@ -462,17 +463,22 @@ export function Selector({
             viewBox={viewBox}
             ref={svgRef}
             onMouseMove={handleMouseMove}
-            onMouseDown={handleCanvasClick}
+            onMouseDown={handleCanvasMouseDown}
+            style={{
+                visibility: mode.allowedActions.includes("VIEW") ? "visible" : "hidden"
+            }}
         >
             <SelectionContext.Provider value={{ SVGRef: svgRef, editMode: editMode }}>
-                {selections.selections.map((selection, i) => (
+                {completeSelections.map((selection, i) => (
                     <Selection
-                        allowMovement={true}
+                        key={`s-${selections[i].points[0].objId}`}
+                        allowMovement={mode.allowedActions.includes("SELECTION_MOVEMENT")}
                         points={selection.points}
-                        isOpen={i === selections.selections.length-1 && selections.isDrawing}
-                        openLineRefCallback={handleOpenLine}
+                        isOpen={false}
+                        onMouseDown={() => handleGroupMouseDown(i)}
                     />
                 ))}
+                {IncompleteSelection}
             </SelectionContext.Provider>
         </svg>
     )

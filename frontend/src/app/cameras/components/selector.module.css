@@ -14,18 +14,21 @@
     stroke: white
 }
 
-.labels{
+.nopointerevents{
+  pointer-events: none;
+}
+
+.labels:not(.moving){
     transition-property: x y; 
-    transition-duration: 0.5s;
+    transition-duration: 0.1s;
     transition-timing-function: ease; 
-    transform: translate(-4%);
 }
 
 .polygon{
   position: relative;
 }
 
-.deleteMode:hover rect{
+.DEFAULT:hover rect{
   fill: rgb(86, 42, 42);
 }
 

@@ -1,4 +1,4 @@
-import { MouseEventHandler, Coords2D, Point, GenericMap, CoordEventHandler } from "./types";
+import { MouseEventHandler, Coords2D, Point, GenericMap, CoordEventHandler } from "../types";
 import { useState, useRef } from "react";
 import { v4 as uuidv4 } from 'uuid';
 import { RefObject } from "react";
@@ -132,7 +132,6 @@ export function createRelMovementHandler(
 ): MouseEventHandler {
 
     const onMouseDown: MouseEventHandler = (e) => {
-        e.stopPropagation()
         const box = (e.currentTarget as HTMLElement).getBoundingClientRect();
         const offsetX = e.clientX - box.left
         const offsetY = e.clientY - box.top
@@ -194,8 +193,8 @@ export function addToPoint(point: Point, { x, y }: Coords2D): Point {
 
 export function imperativeMoveSiblings(distance: Coords2D, node?: Element | null) {
 
-    if(!node) return
-    if(!node.parentElement){
+    if (!node) return
+    if (!node.parentElement) {
         throw Error("Element must have a parent element")
     }
 
@@ -204,16 +203,20 @@ export function imperativeMoveSiblings(distance: Coords2D, node?: Element | null
             "x": ["x1", "x2"],
             "y": ["y1", "y2"]
         },
+        "foreignobject": {
+            "x": ["x"],
+            "y": ["y"]
+        },
         "rect": {
             "x": ["x"],
             "y": ["y"]
         }
     };
-    
+
     const siblings = Array.from(node.parentElement.childNodes);
 
     siblings.forEach((sibling) => {
-        if(sibling.isSameNode(node)) return
+        if (sibling.isSameNode(node)) return
         if (sibling instanceof Element) {
             const siblingTagName = sibling.tagName.toLowerCase();
             const attributeInfo = attributeMap[siblingTagName];
@@ -235,7 +238,7 @@ export function imperativeMoveSiblings(distance: Coords2D, node?: Element | null
     });
 }
 
-export function createPoint(coord: Coords2D): Point{
+export function createPoint(coord: Coords2D): Point {
     return {
         objId: uuidv4(),
         x: coord.x,
