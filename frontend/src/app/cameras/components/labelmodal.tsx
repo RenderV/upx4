@@ -20,23 +20,22 @@ const style = {
 
 interface LabelModelProps {
   open: boolean
-  setOpen: React.Dispatch<React.SetStateAction<boolean>>
+  setOpen: (state: boolean) => void
   label: string
   onKeyDown: React.KeyboardEventHandler
 }
 
 export default function LabelModal({
   open,
-  setOpen,
+  setOpen: openModal,
   label,
   onKeyDown
 }: LabelModelProps) {
-  const handleOpen = () => setOpen(true);
-  const handleClose = () => setOpen(false);
+  const handleOpen = () => openModal(true);
+  const handleClose = () => openModal(false);
 
   return (
-    <div>
-      <Button onClick={handleOpen}>Open modal</Button>
+    <div onKeyDown={(e) => {e.stopPropagation()}}>
       <Modal
         open={open}
         onClose={handleClose}

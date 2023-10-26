@@ -1,12 +1,9 @@
-import React, { MouseEventHandler, createContext, useContext, useReducer } from 'react';
-import { RefObject, useEffect, useRef, useState } from 'react';
-import { Coords2D, Point, SelectionType, SVGPointProps, SVGSelectorProps, SVGSelectionProps, SVGLineProps, MovableSVGElementProps, LineType, CoordEventHandler, GenericMap, SelectionContextType, EditMode, ModeMapType, LabelProps } from "../types"
-import { calcVBOXCoords, createRelMovementHandler, addToAttribute, addToPoint, imperativeMoveSiblings, createPoint } from './utils';
-import { Chip } from '@mui/material';
-import LabelModal from './labelmodal';
-import styles from "./selector.module.css"
-
-export const SelectionContext = createContext<SelectionContextType | null>(null)
+import React, { MouseEventHandler } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Coords2D, Point, SelectionType, SVGSelectorProps, SVGSelectionProps, LineType, CoordEventHandler, EditMode, ModeMapType } from "../types";
+import { calcVBOXCoords, addToPoint, imperativeMoveSiblings, createPoint, SelectionContextProvider, useSelectionContext } from './utils';
+import { SelectorLine, SelectorPoint, Label } from "./movableSVGElements";
+import styles from "./selector.module.css";
 
 export const modeMap: ModeMapType = {
     [EditMode.DEFAULT]: {
@@ -30,220 +27,6 @@ export const modeMap: ModeMapType = {
         shortcuts: ["h", "4"]
     },
 };
-
-
-export const MovableSVGElement = (
-    {
-        children,
-        refCallback,
-        coords,
-        onStartMoving,
-        onMove,
-        onFinishMoving,
-        allowMovement,
-        Xattributes,
-        Yattributes,
-        onMouseDown,
-        propagate = false,
-    }: MovableSVGElementProps) => {
-
-    const [position, setPosition] = useState<Array<Coords2D>>(coords)
-    const elRef = useRef<Element | null>(null)
-    const svgParent = useContext(SelectionContext)?.SVGRef
-    if (!svgParent)
-        throw new Error("svg parent must have a valid ref")
-
-    useEffect(() => {
-        setPosition(coords)
-    }, [coords])
-
-    if (coords.length !== Xattributes.length || coords.length !== Yattributes.length)
-        throw new Error("Arguments Xattributes, Yattributes and coords don't have the same length")
-
-
-    const cvtPos = (coords: Coords2D) => calcVBOXCoords(coords, svgParent.current)
-
-    const handleStartPosition = (totalMovement: Coords2D) => {
-        if (typeof onStartMoving !== 'undefined') {
-            onStartMoving(totalMovement, elRef.current)
-        }
-    }
-    const handleInBetweenPosUpdates = (totalMovement: Coords2D) => {
-        if (!allowMovement) return
-
-        const elementNode = elRef.current
-        const svgParentNode = svgParent.current
-        if (svgParentNode && elementNode) {
-            Xattributes.forEach((attributeName) => {
-                addToAttribute(elementNode, attributeName, totalMovement.x)
-            })
-            Yattributes.forEach((attributeName) => {
-                addToAttribute(elementNode, attributeName, totalMovement.y)
-            })
-            if (onMove)
-                onMove(totalMovement, elRef.current)
-        }
-    }
-    const handleFinalPosUpdate = (totalMovement: Coords2D) => {
-        if (!allowMovement) return
-        const updatedPositions = position.map((pos) => ({
-            x: pos.x + totalMovement.x,
-            y: pos.y + totalMovement.y
-        }));
-        if (typeof onFinishMoving !== 'undefined')
-            if (onFinishMoving)
-                onFinishMoving(totalMovement, elRef.current)
-        setPosition(updatedPositions)
-    };
-
-
-    const handleMouseDown = createRelMovementHandler(
-        handleStartPosition,
-        handleInBetweenPosUpdates,
-        handleFinalPosUpdate,
-        cvtPos
-    )
-
-    const positionProps: GenericMap<number> = {}
-
-    Xattributes.forEach((attributeName, i) => {
-        positionProps[attributeName] = position[i].x
-    })
-    Yattributes.forEach((attributeName, i) => {
-        positionProps[attributeName] = position[i].y
-    })
-
-    return (
-        React.cloneElement(children, {
-            ...children.props,
-            ...positionProps,
-            onMouseDown: (e: React.MouseEvent) => {
-                if (!propagate)
-                    e.stopPropagation()
-                handleMouseDown(e);
-                if (onMouseDown) onMouseDown({ x: e.clientX, y: e.clientY })
-            },
-            ref: (node: Element) => {
-                elRef.current = node
-                if (refCallback) refCallback(node)
-            }
-        })
-    )
-}
-
-export function SelectorPoint({
-    point,
-    onStartMoving,
-    onMove,
-    onFinishMoving,
-    onMouseDown,
-    allowMovement,
-}: SVGPointProps) {
-    const pointRadius = 7
-    const moveLine = (totalMovement: Coords2D) => {
-        if (point.lines[0] !== null) {
-            addToAttribute(point.lines[0], "x2", totalMovement.x)
-            addToAttribute(point.lines[0], "y2", totalMovement.y)
-        }
-        if (point.lines[1] !== null) {
-            addToAttribute(point.lines[1], "x1", totalMovement.x)
-            addToAttribute(point.lines[1], "y1", totalMovement.y)
-        }
-    }
-    return (
-        <MovableSVGElement
-            Xattributes={["x"]}
-            Yattributes={["y"]}
-            coords={[{ x: point.x - pointRadius, y: point.y - pointRadius }]}
-            allowMovement={allowMovement}
-            onMove={moveLine}
-            onFinishMoving={onFinishMoving}
-            onMouseDown={onMouseDown}
-        >
-            <rect
-                width={pointRadius * 2}
-                height={pointRadius * 2}
-                rx="15"
-            />
-        </MovableSVGElement>
-    )
-}
-
-export const SelectorLine = (
-    {
-        coords,
-        refCallback,
-        onStartMoving,
-        onMove,
-        onFinishMoving,
-        allowMovement,
-        onMouseDown,
-        propagate: followMouse
-    }: SVGLineProps
-) => {
-    return (
-        <MovableSVGElement
-            Xattributes={["x1", "x2"]}
-            Yattributes={["y1", "y2"]}
-            coords={coords}
-            allowMovement={allowMovement}
-            refCallback={refCallback}
-            onMove={onMove}
-            onFinishMoving={onFinishMoving}
-            onStartMoving={onStartMoving}
-            onMouseDown={onMouseDown}
-            propagate={followMouse}
-        >
-            <line className={styles.line} stroke="white" strokeWidth={10} />
-        </MovableSVGElement>
-    );
-}
-
-export function Label({
-    text,
-    setName,
-    coords,
-    allowMovement,
-    onMove,
-    onStartMoving,
-    onFinishMoving,
-    clickable,
-    width = 100,
-    height = 30
-}: LabelProps) {
-    const className = clickable ? styles.labels : `${styles.labels} ${styles.nopointerevents}`
-    const [open, setOpen] = useState(false)
-    const handleKeyboardEvent: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
-        e.stopPropagation();
-        if (e.key === "Enter") {
-            const inputElement = e.target as HTMLInputElement;
-            setName(inputElement.value);
-            setOpen(false);
-        } else if (e.key === "Escape") {
-            setOpen(false)
-        }
-    };
-
-
-    return (
-        <>
-            <MovableSVGElement
-                Xattributes={["x"]}
-                Yattributes={["y"]}
-                coords={[coords]}
-                allowMovement={allowMovement}
-                onStartMoving={onStartMoving}
-                onMove={onMove}
-                onFinishMoving={onFinishMoving}
-            >
-                <foreignObject className={className} width={width} height={height} onDoubleClick={(e) => { e.stopPropagation(); setOpen(true) }}>
-                    <Chip label={text} />
-                </foreignObject>
-            </MovableSVGElement>
-            <LabelModal open={open} setOpen={setOpen} label={text} onKeyDown={handleKeyboardEvent} />
-        </>
-    )
-}
 
 
 export function Selection({
@@ -304,22 +87,29 @@ export function Selection({
         )
     }
 
-    const handleIntermediateMovement: CoordEventHandler = imperativeMoveSiblings
-    const handlePolygonStateUpdate: CoordEventHandler = (coords) => {
+    const handlePolygonStartMovement: CoordEventHandler = (coords, elNode) => {
+        if (!allowMovement) return
+        elNode?.parentElement?.classList.add(styles.moving)
+    }
+
+    const handlePolygonIntermediateMovement: CoordEventHandler = imperativeMoveSiblings
+    const handlePolygonStateUpdate: CoordEventHandler = (coords, elNode) => {
         const newPoints = currentPoints.map((p) => addToPoint(p, coords))
         setPoints(newPoints)
+        elNode?.parentElement?.classList.remove(styles.moving)
     }
 
     const handleStartLabelMovement: CoordEventHandler = (coords, elNode) => {
-        if (elNode) elNode.classList.add(styles.moving)
+        if (!allowMovement) return
+        elNode?.parentElement?.classList.add(styles.moving)
     }
 
     const handleLabelStateUpdate: CoordEventHandler = (coords, elNode) => {
         setLabelOffset({ x: labelOffset.x + coords.x, y: labelOffset.y + coords.y })
-        if (elNode) elNode.classList.remove(styles.moving)
+        elNode?.parentElement?.classList.remove(styles.moving)
     }
 
-    const handleGroupMouseDown: CoordEventHandler = (coords) => {
+    const handlePolygonMouseDown: CoordEventHandler = (coords) => {
         if (onMouseDown)
             onMouseDown(coords)
     }
@@ -355,8 +145,9 @@ export function Selection({
                             allowMovement={allowMovement && !isOpen}
                             propagate={isOpen}
                             refCallback={line.refCallback}
-                            onMove={handleIntermediateMovement}
-                            onMouseDown={handleGroupMouseDown}
+                            onMouseDown={handlePolygonMouseDown}
+                            onStartMoving={handlePolygonStartMovement}
+                            onMove={handlePolygonIntermediateMovement}
                             onFinishMoving={handlePolygonStateUpdate}
                         />
                     )
@@ -384,12 +175,14 @@ export function Selection({
     )
 }
 
+
 export default function Selector({
     width,
     height,
     viewBox,
     initialSelections,
     editMode,
+    changeMode,
     onKeyDown
 }: SVGSelectorProps) {
     const svgRef = useRef<SVGSVGElement | null>(null)
@@ -455,6 +248,7 @@ export default function Selector({
             onClose={() => setDrawingState(false)}
             openLineRefCallback={handleOpenLine} />
     }
+    const display = mode.allowedActions.includes("VIEW") ? "" : "none"
 
     return (
         <svg
@@ -465,10 +259,10 @@ export default function Selector({
             onMouseMove={handleMouseMove}
             onMouseDown={handleCanvasMouseDown}
             style={{
-                visibility: mode.allowedActions.includes("VIEW") ? "visible" : "hidden"
+                display: display
             }}
         >
-            <SelectionContext.Provider value={{ SVGRef: svgRef, editMode: editMode }}>
+            <SelectionContextProvider value={{ SVGRef: svgRef, editMode: editMode, changeMode: changeMode }}>
                 {completeSelections.map((selection, i) => (
                     <Selection
                         key={`s-${selections[i].points[0].objId}`}
@@ -479,7 +273,7 @@ export default function Selector({
                     />
                 ))}
                 {IncompleteSelection}
-            </SelectionContext.Provider>
+            </SelectionContextProvider>
         </svg>
     )
 }

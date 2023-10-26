@@ -36,7 +36,7 @@ export enum EditMode {
     EDIT = "edit",
     DELETE = "delete",
     HIDE = "hide",
-    DEFAULT = "default"
+    DEFAULT = "default",
 }
 
 export declare interface CommonProps {
@@ -90,19 +90,22 @@ export declare interface SVGSelectorProps {
     viewBox: string;
     initialSelections?: Array<SelectionType>;
     editMode: EditMode;
+    changeMode: (mode: EditMode) => void
     onKeyDown?: React.KeyboardEventHandler
 }
 
 export declare type SelectionContextType = {
     SVGRef: React.RefObject<SVGSVGElement | null> | null;
     editMode: EditMode;
+    changeMode: (mode: EditMode) => void
 }
 
 export declare type AllowedAction = "SELECTION_MOVEMENT" |
                                     "SELECTION_CREATION" |
                                     "SELECTION_DELETION" |
                                     "VIEW"               |
-                                    "VIEW_MOVEMENT"
+                                    "VIEW_MOVEMENT"      |
+                                    "BLOCK_SHORTCUTS"
 
 export declare type ModeMapType = {
     [key in EditMode]: {
@@ -120,7 +123,7 @@ export declare interface MenuItemProps {
 
 export declare interface CanvasControllerProps {
     editMode: EditMode;
-    setEditMode: (mode: EditMode) => void;
+    changeMode: (mode: EditMode) => void;
 }
 
 export declare type EditModeButton = {

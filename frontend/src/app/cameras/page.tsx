@@ -9,7 +9,9 @@ import VideoJS from "./components/videojs";
 
 export default function Home() {
   const [editMode, setEditMode] = useState(EditMode.ADD);
-  const [modalOpen, setModalOpen] = useState(true)
+  const changeMode = (mode: EditMode)=>{
+    setEditMode(mode)
+  }
 
   const videoJsOptions = {
     autoplay: true,
@@ -36,13 +38,13 @@ export default function Home() {
           }}
         >
           <div className={styles.videoContainer}>
-            <SelectionWrapper editMode={editMode}>
+            <SelectionWrapper editMode={editMode} changeMode={changeMode}>
               <VideoJS options={videoJsOptions} />
             </SelectionWrapper>
           </div>
         </TransformComponent>
       </TransformWrapper>
-      <CanvasController editMode={editMode} setEditMode={setEditMode} />
+      <CanvasController editMode={editMode} changeMode={setEditMode} />
     </>
   );
 }

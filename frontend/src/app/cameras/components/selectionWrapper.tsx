@@ -6,6 +6,7 @@ import { EditMode } from "../types";
 interface SelectionWrapperProps {
   children: ReactElement;
   aspectRatio?: string;
+  changeMode: (mode: EditMode) => void;
   editMode: EditMode;
 }
 
@@ -13,6 +14,7 @@ export default function SelectionWrapper({
   children,
   aspectRatio="16 / 9",
   editMode,
+  changeMode,
 }: SelectionWrapperProps) {
 
   return (
@@ -24,6 +26,7 @@ export default function SelectionWrapper({
         viewBox="0 0 1000 1000"
         initialSelections={[]}
         editMode={editMode}
+        changeMode={changeMode}
       />
     </div>
   );

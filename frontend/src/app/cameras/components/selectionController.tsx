@@ -16,7 +16,7 @@ function MenuItem({ Icon, title, onClick, className }: MenuItemProps) {
     );
 }
 
-function CanvasController({ editMode, setEditMode }: CanvasControllerProps) {
+function CanvasController({ editMode, changeMode}: CanvasControllerProps) {
 
     const [isDrawn, setDrawn] = useState(false)
     const timer = useRef<NodeJS.Timeout>()
@@ -36,7 +36,7 @@ function CanvasController({ editMode, setEditMode }: CanvasControllerProps) {
                 const modeData = modeMap[mode as EditMode];
                 if (modeData.shortcuts.includes(e.key)) {
                     if (timer.current) clearTimeout(timer.current)
-                    setEditMode(mode as EditMode)
+                    changeMode(mode as EditMode)
                     if (e.key === "Escape") {
                         setDrawn(false)
                     } else {
@@ -86,9 +86,9 @@ function CanvasController({ editMode, setEditMode }: CanvasControllerProps) {
 
     const handleButtonClick = (mode: EditMode) => {
         if (mode === editMode)
-            setEditMode(EditMode.DEFAULT)
+            changeMode(EditMode.DEFAULT)
         else
-            setEditMode(mode)
+            changeMode(mode)
     }
 
     return (

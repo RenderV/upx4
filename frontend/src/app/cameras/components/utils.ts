@@ -1,5 +1,5 @@
-import { MouseEventHandler, Coords2D, Point, GenericMap, CoordEventHandler } from "../types";
-import { useState, useRef } from "react";
+import { MouseEventHandler, Coords2D, Point, GenericMap, SelectionContextType, EditMode } from "../types";
+import { useState, createContext, useContext } from "react";
 import { v4 as uuidv4 } from 'uuid';
 import { RefObject } from "react";
 
@@ -247,4 +247,11 @@ export function createPoint(coord: Coords2D): Point {
         oy: coord.y,
         lines: [null, null]
     }
+}
+
+const SelectionContext = createContext<SelectionContextType>({SVGRef: null, editMode: EditMode.DEFAULT, changeMode: (mode) => {}})
+export const SelectionContextProvider = SelectionContext.Provider
+export const useSelectionContext = () => {
+    const selectionContext = useContext(SelectionContext)
+    return selectionContext
 }
