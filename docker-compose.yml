@@ -48,4 +48,4 @@ services:
       - 8889:8889
       - 8890:8890/udp
     volumes:
-      - ./mediamtx/mediamtx.yml:/mediamtx.yml:Z
+      - ./mediaserver/mediamtx.yml:/mediamtx.yml:Z
