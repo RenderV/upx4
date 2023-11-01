@@ -1,0 +1,51 @@
+services:
+  postgres:
+    image: postgres:latest
+    ports:
+      - 5432:5432
+    environment:
+      - POSGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+  api:
+    build:
+      context: ./api
+    volumes:
+      - ./api:/usr/src/app/:Z
+    ports:
+      - 8000:8000
+    command: python manage.py runserver 0.0.0.0:8000
+    depends_on:
+      - postgres
+    environment:
+      - POSGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+  inference:
+    build:
+      context: ./inference
+    command: python3 /usr/src/app/script.py
+    volumes:
+      - ./inference/script.py:/usr/src/app/script.py:Z
+  webapp:
+    build:
+      context: ./frontend
+    volumes:
+      - ./frontend:/home/app/:Z
+    command: npm run dev
+    ports:
+      - 3000:3000
+    depends_on:
+      - api
+  mediamtx:
+    image: bluenviron/mediamtx:latest-ffmpeg
+    environment:
+      - MTX_PROTOCOLS=tcp
+    ports:
+      - 8554:8554
+      - 1935:1935
+      - 8888:8888
+      - 8889:8889
+      - 8890:8890/udp
+    volumes:
+      - ./mediamtx/mediamtx.yml:/mediamtx.yml:Z

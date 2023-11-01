@@ -11,9 +11,15 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from pathlib import Path
+from os import environ
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+INTERNAL_IPS = [
+    "127.0.0.1",
+]
+
 
 
 # Quick-start development settings - unsuitable for production
@@ -34,6 +40,7 @@ INSTALLED_APPS = [
     'cams',
 
     'rest_framework',
+    "debug_toolbar",
 
     'django.contrib.admin',
     'django.contrib.auth',
@@ -51,6 +58,17 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'django.middleware.common.CommonMiddleware', 
+    'django.middleware.common.CommonMiddleware',   
+
+    'corsheaders.middleware.CorsMiddleware',
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
+    'django.middleware.common.CommonMiddleware',
+]
+
+CORS_ALLOWED_ORIGINS = [
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:8000",
 ]
 
 ROOT_URLCONF = 'smartpark.urls'
@@ -80,12 +98,13 @@ WSGI_APPLICATION = 'smartpark.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'OPTIONS':{
-            'service': 'upx4',
-        }
+        'NAME': environ.get("POSTGRES_DB"),
+        'USER': environ.get("POSTGRES_USER"),
+        'PASSWORD': environ.get("POSTGRES_PASSWORD"),
+        'HOST': 'postgres',
+        'PORT': '5432',
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -127,3 +146,5 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+APPEND_SLASH = False
