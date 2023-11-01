@@ -1,24 +1,20 @@
 from rest_framework import serializers
-from .models import Camera, ParkingSpace
+from .models import Camera, ParkingSpace, Point
 
 
 class CameraSerializer(serializers.ModelSerializer):
     class Meta:
         model = Camera
-        fields = ["id", "location", "url"]
+        fields = "__all__"
 
+
+class PointSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Point
+        fields="__all__"
 
 class ParkingSpaceSerializer(serializers.ModelSerializer):
-    area = serializers.ListField(allow_empty=True, child=serializers.ListField())
-
+    point_set = PointSerializer(many=True)
     class Meta:
         model = ParkingSpace
-        fields = ["id", "cameraID", "area"]
-
-
-class ParkingSpaceSummarySerializer(serializers.ModelSerializer):
-    area = serializers.ListField(allow_empty=True, child=serializers.ListField(allow_empty=False))
-
-    class Meta:
-        model = ParkingSpace
-        fields = ["id", "area"]
+        fields = "__all__"

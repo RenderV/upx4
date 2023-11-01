@@ -25,8 +25,9 @@ export declare type LineType = {
 }
 
 export declare type SelectionType = {
-    points: Array<Point>;
+    objId: string;
     label: string;
+    points: Array<Point>;
 }
 
 export declare type CoordEventHandler = (coords: Coords2D, node?: Element | null, e?: React.MouseEvent) => void
@@ -69,7 +70,8 @@ export declare interface SVGLineProps extends CommonProps {
 }
 
 export declare interface SVGSelectionProps extends CommonProps {
-    points: Array<Point>;
+    onSelectionUpdate?: (selection: SelectionType) => void;
+    points: SelectionType;
     isOpen: boolean;
     openLineRefCallback?: ((node: Element) => void);
     onClose?: () => void
@@ -77,7 +79,7 @@ export declare interface SVGSelectionProps extends CommonProps {
 
 export declare interface LabelProps extends CommonProps {
     text: string
-    setName: React.Dispatch<React.SetStateAction<string>>
+    changeName: (newName: string) => void
     coords: Coords2D
     clickable: boolean
     width?: number

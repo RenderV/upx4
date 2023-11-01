@@ -174,7 +174,7 @@ export const SelectorLine = (
 
 export function Label({
     text,
-    setName,
+    changeName: setName,
     coords,
     allowMovement,
     onMove,
@@ -194,13 +194,11 @@ export function Label({
         setOpen(state)
         if (!changeMode) return
         if (state) {
-            console.log('default')
             previousState.current = editMode
             changeMode(EditMode.DEFAULT)
         }
         else {
-            console.log('previous')
-            if (previousState.current) changeMode(previousState.current)
+            changeMode(previousState.current)
         }
     }
     const handleKeyboardEvent: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
@@ -213,7 +211,7 @@ export function Label({
             openModal(false)
         }
     };
-
+    coords.x -= 30
 
     return (
         <>

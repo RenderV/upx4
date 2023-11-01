@@ -1,8 +1,10 @@
+'use client'
 import React, { MouseEventHandler } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Coords2D, Point, SelectionType, SVGSelectorProps, SVGSelectionProps, LineType, CoordEventHandler, EditMode, ModeMapType } from "../types";
 import { calcVBOXCoords, addToPoint, imperativeMoveSiblings, createPoint, SelectionContextProvider, useSelectionContext } from './utils';
 import { SelectorLine, SelectorPoint, Label } from "./movableSVGElements";
+import { v4 as uuidv4 } from 'uuid'
 import styles from "./selector.module.css";
 
 export const modeMap: ModeMapType = {
@@ -30,20 +32,21 @@ export const modeMap: ModeMapType = {
 
 
 export function Selection({
-    onStartMoving,
-    onMove,
-    onFinishMoving,
-    onMouseDown,
     allowMovement,
+    onSelectionUpdate,
+    onClose,
+    onMouseDown,
     points,
     openLineRefCallback,
     isOpen,
-    onClose,
 }: SVGSelectionProps) {
     const pointRadius = 7;
-    const [currentPoints, setPoints] = useState<Array<Point>>(points)
+    const [currentPoints, setPoints] = useState(points)
     const [labelOffset, setLabelOffset] = useState<Coords2D>({ x: 0, y: 0 })
-    const [labelName, setLabelName] = useState<string>("slk")
+
+    useEffect(() => {
+        if(onSelectionUpdate) onSelectionUpdate(currentPoints)
+    }, [currentPoints])
 
     var bbox = {
         minX: Infinity,
@@ -52,20 +55,23 @@ export function Selection({
         maxY: -Infinity
     };
 
-    currentPoints.forEach((p) => {
+    currentPoints.points.forEach((p) => {
         bbox.minX = p.x < bbox.minX ? p.x : bbox.minX;
         bbox.maxX = p.x > bbox.maxX ? p.x + pointRadius * 2 : bbox.maxX;
         bbox.minY = p.y < bbox.minY ? p.y : bbox.minY;
         bbox.maxY = p.y > bbox.maxY ? p.y + pointRadius * 2 : bbox.maxY;
     });
 
-    const labelPos = { x: bbox.minX + (bbox.maxX - bbox.minX) / 2 + labelOffset.x, y: bbox.maxY + 5 + labelOffset.y }
+    const labelPos = {
+        x: bbox.minX + (bbox.maxX - bbox.minX) / 2 + labelOffset.x,
+        y: bbox.maxY + 5 + labelOffset.y
+    }
 
     const lineCoords: Array<LineType> = []
 
-    for (var i = 0; i < currentPoints.length; i++) {
-        const thisPoint = currentPoints[i]
-        const nextPoint = i === currentPoints.length - 1 ? currentPoints[0] : currentPoints[i + 1]
+    for (var i = 0; i < currentPoints.points.length; i++) {
+        const thisPoint = currentPoints.points[i]
+        const nextPoint = i === currentPoints.points.length - 1 ? currentPoints.points[0] : currentPoints.points[i + 1]
         lineCoords.push({
             position:
                 [
@@ -94,8 +100,8 @@ export function Selection({
 
     const handlePolygonIntermediateMovement: CoordEventHandler = imperativeMoveSiblings
     const handlePolygonStateUpdate: CoordEventHandler = (coords, elNode) => {
-        const newPoints = currentPoints.map((p) => addToPoint(p, coords))
-        setPoints(newPoints)
+        const newPoints = currentPoints.points.map((p) => addToPoint(p, coords))
+        setPoints({ ...currentPoints, points: newPoints })
         elNode?.parentElement?.classList.remove(styles.moving)
     }
 
@@ -117,7 +123,12 @@ export function Selection({
     const handlePointMouseDown = (coords: Coords2D, i: number) => {
         if (onMouseDown)
             onMouseDown(coords)
-        if (onClose && isOpen && i === 0) onClose()
+        if (onClose && isOpen && i === 0)
+            onClose()
+    }
+
+    const changeLabelName = (newName: string) => {
+        setPoints({ ...currentPoints, label: newName })
     }
 
     if (isOpen && openLineRefCallback) {
@@ -129,7 +140,7 @@ export function Selection({
 
     return (
         <g>
-            <Label text={labelName} setName={setLabelName} coords={labelPos}
+            <Label text={currentPoints.label} changeName={changeLabelName} coords={labelPos}
                 allowMovement={allowMovement}
                 onStartMoving={handleStartLabelMovement}
                 onFinishMoving={handleLabelStateUpdate}
@@ -154,17 +165,17 @@ export function Selection({
                 })
             }
             {
-                currentPoints.map((point, i) => (
+                currentPoints.points.map((point, i) => (
                     <SelectorPoint
                         point={point}
                         allowMovement={allowMovement}
                         key={point.objId}
                         onMouseDown={(coords) => handlePointMouseDown(coords, i)}
                         onFinishMoving={(coords) => {
-                            setPoints((oldArr) => {
-                                var newArr = [...oldArr]
+                            setPoints((oldSelection) => {
+                                var newArr = [...oldSelection.points]
                                 newArr[i] = addToPoint(point, coords)
-                                return newArr
+                                return { ...oldSelection, points: newArr }
                             })
                         }}
                     />
@@ -219,7 +230,8 @@ export default function Selector({
             const point = createPoint(calcVBOXCoords({ x: e.clientX, y: e.clientY }, svgRef.current));
             if (!isDrawing) {
                 setDrawingState(true);
-                setSelections([...selections, { points: [point], label: "" }]);
+                const labelId = uuidv4()
+                setSelections([...selections, { points: [point], label: `vaga-${labelId}`, objId: labelId }]);
             } else {
                 const newSelections = [...selections];
                 newSelections[newSelections.length - 1].points.push(point);
@@ -228,7 +240,7 @@ export default function Selector({
         }
     }
 
-    const handleGroupMouseDown = (idx: number) => {
+    const deleteSelection = (idx: number) => {
         if (!mode.allowedActions.includes("SELECTION_DELETION")) return
         const newSelections = [...selections]
         newSelections.splice(idx, 1)
@@ -243,7 +255,7 @@ export default function Selector({
         incompleteSelection = selections[selections.length - 1]
         completeSelections = selections.slice(0, -1)
         IncompleteSelection = <Selection allowMovement={false}
-            points={incompleteSelection.points}
+            points={incompleteSelection}
             isOpen={true}
             onClose={() => setDrawingState(false)}
             openLineRefCallback={handleOpenLine} />
@@ -265,11 +277,11 @@ export default function Selector({
             <SelectionContextProvider value={{ SVGRef: svgRef, editMode: editMode, changeMode: changeMode }}>
                 {completeSelections.map((selection, i) => (
                     <Selection
-                        key={`s-${selections[i].points[0].objId}`}
+                        key={selection.objId}
                         allowMovement={mode.allowedActions.includes("SELECTION_MOVEMENT")}
-                        points={selection.points}
+                        points={selection}
                         isOpen={false}
-                        onMouseDown={() => handleGroupMouseDown(i)}
+                        onMouseDown={() => deleteSelection(i)}
                     />
                 ))}
                 {IncompleteSelection}

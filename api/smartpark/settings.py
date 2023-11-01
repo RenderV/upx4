@@ -11,9 +11,15 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from pathlib import Path
+from os import environ
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+INTERNAL_IPS = [
+    "127.0.0.1",
+]
+
 
 
 # Quick-start development settings - unsuitable for production
@@ -34,6 +40,7 @@ INSTALLED_APPS = [
     'cams',
 
     'rest_framework',
+    "debug_toolbar",
 
     'django.contrib.admin',
     'django.contrib.auth',
@@ -55,6 +62,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',   
 
     'corsheaders.middleware.CorsMiddleware',
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.middleware.common.CommonMiddleware',
 ]
 
@@ -90,12 +98,13 @@ WSGI_APPLICATION = 'smartpark.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'OPTIONS':{
-            'service': 'upx4',
-        }
+        'NAME': environ.get("POSTGRES_DB"),
+        'USER': environ.get("POSTGRES_USER"),
+        'PASSWORD': environ.get("POSTGRES_PASSWORD"),
+        'HOST': 'postgres',
+        'PORT': '5432',
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators

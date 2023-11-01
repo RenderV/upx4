@@ -7,5 +7,12 @@ class Camera(models.Model):
     url = models.CharField(max_length=1000)
 
 class ParkingSpace(models.Model):
-    label = models.CharField(100, unique=True)
-    cameraID = models.ForeignKey(to=Camera, on_delete=models.CASCADE)
+    id = models.UUIDField(primary_key=True)
+    label = models.CharField(max_length=30)
+    camera = models.ForeignKey(to=Camera, on_delete=models.CASCADE)
+
+class Point(models.Model):
+    id = models.UUIDField(primary_key=True)
+    x = models.IntegerField()
+    y = models.IntegerField()
+    parking_space = models.ForeignKey(to=ParkingSpace, on_delete=models.CASCADE)

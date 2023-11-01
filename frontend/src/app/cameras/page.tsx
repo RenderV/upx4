@@ -21,12 +21,12 @@ export default function Home() {
     sources: [{
       src: 'http://localhost:8888/collingwood/index.m3u8',
       type: 'application/x-mpegURL'
-    }]
+    }],
   };
 
   return (
     <>
-      <TransformWrapper doubleClick={{ disabled: true }}>
+      <TransformWrapper doubleClick={{disabled: true}} pinch={{step: 300}}>
         <TransformComponent
           wrapperStyle={{
             width: "100%",

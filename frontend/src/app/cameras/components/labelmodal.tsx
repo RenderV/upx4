@@ -43,7 +43,7 @@ export default function LabelModal({
         aria-describedby="modal-modal-description"
       >
         <Box sx={style}>
-          <TextField id="outlined-basic" label="Label" defaultValue={label} variant="outlined" onKeyDown={onKeyDown}/>
+          <TextField id="outlined-basic" label="label" defaultValue={label} variant="outlined" onKeyDown={onKeyDown}/>
         </Box>
       </Modal>
     </div>
