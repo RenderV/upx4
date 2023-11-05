@@ -27,6 +27,9 @@ services:
     command: python3 /usr/src/app/script.py
     volumes:
       - ./inference/script.py:/usr/src/app/script.py:Z
+    depends_on:
+      - ffmpeg
+      - mediamtx
   webapp:
     build:
       context: ./frontend
@@ -37,6 +40,7 @@ services:
       - 3000:3000
     depends_on:
       - api
+      - mediamtx
   mediamtx:
     image: bluenviron/mediamtx:latest-ffmpeg
     environment:
@@ -48,4 +52,12 @@ services:
       - 8889:8889
       - 8890:8890/udp
     volumes:
-      - ./mediaserver/mediamtx.yml:/mediamtx.yml:Z
+      - ./media-server/mediamtx.yml:/mediamtx.yml:Z
+  ffmpeg:
+    build:
+      context: ./ffmpeg
+    command: ffmpeg -re -stream_loop -1 -ss 01:47:00 -i collingwood.mp4 -c copy -f rtsp rtsp://mediamtx:8554/collingwood
+    volumes:
+      - ${VIDEO_PATH}:/collingwood.mp4:Z
+    depends_on:
+      - mediamtx
