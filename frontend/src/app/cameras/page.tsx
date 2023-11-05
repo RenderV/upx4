@@ -19,7 +19,7 @@ export default function Home() {
     responsive: true,
     fluid: true,
     sources: [{
-      src: 'http://localhost:8888/collingwood/index.m3u8',
+      src: 'http://localhost:8888/opencv/index.m3u8',
       type: 'application/x-mpegURL'
     }],
   };
