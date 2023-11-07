@@ -4,6 +4,18 @@ import signal
 import subprocess as sp
 from ultralytics import YOLO
 from concurrent.futures import ThreadPoolExecutor
+from abc import ABC, abstractmethod
+
+class DetectionModel(YOLO):
+    def perform_detection(self, frame, *args, **kwargs):
+        return self.track(frame, *args, **kwargs)
+
+class ParkingLotDetector(DetectionModel):
+    def _get_selection():
+        pass
+    def perform_detection(self, frame, *args, **kwargs):
+        results = self.track(frame, *args, **kwargs)
+        return results
 
 class YoloRTSP:
     def __init__(self, input_url, output_url, model=None, img_width=None, img_height=None, fps=None, ffmpeg_cmd="ffmpeg", classes=None):
@@ -13,13 +25,13 @@ class YoloRTSP:
             raise ConnectionError("Could not open video capture")
         
         if(model is None):
-            self._model = YOLO()
+            self._model = DetectionModel()
         elif(isinstance(model, str)):
-            self._model = YOLO(model)
-        elif isinstance(model, YOLO):
+            self._model = DetectionModel(model)
+        elif isinstance(model, DetectionModel):
             self._model = model
         else:
-            raise ValueError(f"model attribute must be a instance of {str.__name__} or {YOLO.__name__}, but got {type(model).__name__}")
+            raise ValueError(f"model attribute must be a instance of {str.__name__} or {DetectionModel.__name__}, but got {type(model).__name__}")
         self._class_dict = {v: k for k, v in self._model.names.items()}
 
         self._classes = [self._class_dict[class_] for class_ in classes] if classes is not None else list(self._class_dict.values())
@@ -98,8 +110,7 @@ class YoloRTSP:
         while self._vcap.isOpened() and not self._is_stopped:
             ret, frame = self._vcap.read()
             if ret:
-                self._model.track(frame, persist=True)
-                results = self._model.track(frame, persist=True, verbose=False, classes=self._classes)
+                results = self._model.perform_detection(frame, persist=True, verbose=False, classes=self._classes)
                 annotated_frame = results[0].plot(boxes=False)
                 self._current_frame = annotated_frame
                 if(not force_refresh_rate):

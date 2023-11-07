@@ -7,7 +7,6 @@ class CameraSerializer(serializers.ModelSerializer):
         model = Camera
         fields = "__all__"
 
-
 class PointSerializer(serializers.ModelSerializer):
     class Meta:
         model = Point

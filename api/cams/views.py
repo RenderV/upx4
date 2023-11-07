@@ -54,6 +54,7 @@ class PointView(APIView):
             "id": point.id,
             "x": request.data.get("x", point.x),
             "y": request.data.get("y", point.y),
+            "parking_space": point.get("parking_space")
         }
 
         serializer = PointSerializer(point, data=new_point_data)

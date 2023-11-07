@@ -40,7 +40,8 @@ INSTALLED_APPS = [
     'cams',
 
     'rest_framework',
-    "debug_toolbar",
+    'debug_toolbar',
+    'daphne',
 
     'django.contrib.admin',
     'django.contrib.auth',
@@ -148,3 +149,15 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 APPEND_SLASH = False
+
+#django-channels setting
+ASGI_APPLICATION = "myproject.asgi.application"
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("127.0.0.1", 6379)],
+        },
+    },
+}
