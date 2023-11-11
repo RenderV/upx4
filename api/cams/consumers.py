@@ -9,7 +9,14 @@ class SelectionConsumer(WebsocketConsumer):
     def disconnect(self, close_code):
         pass
 
-    def receive(self, text_data):
-        text_data_json = json.loads(text_data)
-        message = text_data_json["message"]
-        self.send(text_data=json.dumps({"message": message}))
+    async def receive(self, text_data):
+        try:
+            json_data = json.loads(text_data)
+        except json.decoder.JSONDecodeError:
+            await self.close(code=3000)
+            return
+    
+    async def point_update(self, event):
+        pass
+        # selection = event['selection']
+        # await self.send(json.dumps(point))
