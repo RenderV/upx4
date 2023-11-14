@@ -2,7 +2,7 @@
 import React, { MouseEventHandler } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Coords2D, Point, SelectionType, SVGSelectorProps, SVGSelectionProps, LineType, CoordEventHandler, EditMode, ModeMapType } from "../types";
-import { calcVBOXCoords, addToPoint, imperativeMoveSiblings, createPoint, SelectionContextProvider, useSelectionContext } from './utils';
+import { calcVBOXCoords, addToPoint, imperativeMoveSiblings, createPoint, SelectionContextProvider, useSelectionContext, bboxToImageCoords } from './utils';
 import { SelectorLine, SelectorPoint, Label } from "./movableSVGElements";
 import { v4 as uuidv4 } from 'uuid'
 import styles from "./selector.module.css";
@@ -205,6 +205,11 @@ export default function Selector({
     const [selections, setSelections] = useState(initialSelections)
     const [isDrawing, setDrawingState] = useState(false)
     const openLineRef = useRef<Element | null>(null)
+    console.log(selections.map((s => {
+        return s.points.map((p) => {
+            return `(${p.x}, ${p.y})`
+        }).join(", ")
+    })))
 
 
     const handleOpenLine = (node: Element) => {

@@ -17,7 +17,7 @@ import rel
 import traceback
 import threading
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.CRITICAL)
 
 @dataclass
 class Vehicle:
@@ -34,7 +34,7 @@ class ParkingSpace:
         self._vehicles: dict[str, Vehicle] = {}
         self._starting_time: dict[str, float] = {}
         self._finishing_time: dict[str, float] = {}
-        self._active_ids: List[int] = []
+        self._active_ids = []
         self.selection_list = selection
         logging.log(logging.INFO, f"Created parking space with id {self._id}")
 
@@ -75,7 +75,7 @@ class ParkingSpace:
     def _update_vehicle(self, vehicle: Vehicle):
         self._vehicles[vehicle.id] = vehicle
     
-    def compute_intersection(self, vehicle: Vehicle, threshold) -> bool:
+    def intersects_vehicle(self, vehicle: Vehicle, threshold) -> bool:
         intersection = self._selection_polygon.intersection(vehicle.polygon)
         key_exists = vehicle.id in self._vehicles
 
@@ -89,12 +89,13 @@ class ParkingSpace:
 
         if intersection_ratio > threshold and not key_exists:
             self._add_vehicle(vehicle)
+            return True
         elif intersection_ratio > threshold and key_exists:
             self._update_vehicle(vehicle)
+            return True
         elif key_exists:
             self._del_vehicle(vehicle)
-
-        return True
+            return False
     
     def __export__(self):
         return {
@@ -235,7 +236,7 @@ class OccupationDetector(DetectionModel):
                 "Threadpool already exists - must stop before creating a new one."
         )
         self._thread_pool = ThreadPoolExecutor(max_workers=10)
-        # self._thread_pool.submit(self.traceback_run_forever)
+        self._thread_pool.submit(self.traceback_run_forever)
         rel.signal(2, rel.abort)
         logging.log(logging.INFO, f"Started websocket threadpool")
     
@@ -249,9 +250,10 @@ class OccupationDetector(DetectionModel):
     def post_results(self, class_name):
         pass
 
-    def perform_detection(self, frame, classes, *args, **kwargs) -> List:
+    def perform_detection(self, frame, calculate_area, classes, *args, **kwargs) -> List:
         logging.log(logging.DEBUG, f"Performing detection on frame")
         results = self.model.track(frame, persist=True, verbose=False, tracker="bytetrack.yaml")
+        if(not calculate_area): return results
         masks, cls_list, cls_probs, id_list = [], [], [], []
         if(results[0].masks is not None):
             masks = results[0].masks.xy
@@ -268,7 +270,7 @@ class OccupationDetector(DetectionModel):
                 v =  Vehicle(id, cls_, conf, Polygon(mask))
                 self._vehicles[id] = v
                 for parking_space in self._parking_spaces.values():
-                    intersects = parking_space.compute_intersection(v, self.threshold)
+                    intersects = parking_space.intersects_vehicle(v, self.threshold)
         except Exception as e:
             logging.log(logging.ERROR, f"Error while computing intersections")
             traceback.print_exc()
@@ -436,11 +438,12 @@ class YoloRTSP:
         try:
             while self._vcap.isOpened() and not self._is_stopped:
                 ret, frame = self._vcap.read()
+                frame_pos = self._vcap.get(cv2.CAP_PROP_POS_FRAMES)
                 if ret:
                     results = self._model.perform_detection(
-                        frame, classes=self._classes
+                        frame, classes=self._classes, calculate_area=(frame_pos % 15 == 0)
                     )
-                    annotated_frame = results[0].plot()
+                    annotated_frame = results[0].plot(boxes=False)
                     self._current_frame = annotated_frame
                     if not force_refresh_rate:
                         self._update()
@@ -496,7 +499,7 @@ class YoloRTSP:
 
 
 def get_urls() -> Tuple[List[str], List[str]]:
-    sources = ["http://mediamtx:8888/collingwood/index.m3u8"]
+    sources = ["rtsp://mediamtx:8554/collingwood"]
     upload = ["rtsp://mediamtx:8554/opencv"]
     return sources, upload
 

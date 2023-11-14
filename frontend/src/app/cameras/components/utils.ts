@@ -55,6 +55,57 @@ export const calcVBOXCoords = (
     return { x, y }
 };
 
+export const bboxToImageCoords = (
+    { x, y }: Coords2D,
+    {imgWidth, imgHeight}: {imgWidth: number, imgHeight: number},
+    svgNode: SVGSVGElement | null
+): Coords2D => {
+
+    if (svgNode !== null) {
+        const bbox = svgNode.getBoundingClientRect()
+        const { x: xmin, y: ymin, width: viewBoxWidth, height: viewBoxHeight } = (svgNode).viewBox.animVal
+
+        if (!(viewBoxWidth == 0 && viewBoxHeight == 0)) {
+            let innerOffsetX = 0
+            let innerOffsetY = 0
+
+            const vRatio = viewBoxWidth / viewBoxHeight
+            const bRatio = bbox.width / bbox.height
+
+            if (bRatio > vRatio) {
+                const scale = viewBoxHeight / bbox.height
+                const Cw = scale * bbox.width
+                innerOffsetX = (Cw - viewBoxWidth) / 2
+            } else if (bRatio < vRatio) {
+                const scale = viewBoxWidth / bbox.width
+                const Ch = scale * bbox.height
+                innerOffsetY = (Ch - viewBoxHeight) / 2
+            }
+
+            x = mapRange(
+                x, // x in bbox
+                xmin - innerOffsetX, // min x in the svg viewBox
+                viewBoxWidth + innerOffsetX, // max x in the svg viewBox
+                0, // min x in img
+                imgWidth // max x in img
+            )
+            y = mapRange(
+                y, // y in bbox
+                ymin - innerOffsetY, // min y in the svg viewBox
+                viewBoxHeight + innerOffsetY, // max y in the svg viewBox
+                0, // min y in img
+                imgHeight // max y in img
+            )
+
+        } else {
+            throw new Error("ViewBox width and height must be greater than 0")
+        }
+    }
+    x = Math.round(x)
+    y = Math.round(y)
+    return { x, y }
+};
+
 export const calcScreenCoords = (
     { x, y }: Coords2D,
     svgRef: RefObject<SVGSVGElement>
@@ -249,7 +300,7 @@ export function createPoint(coord: Coords2D): Point {
     }
 }
 
-const SelectionContext = createContext<SelectionContextType>({SVGRef: null, editMode: EditMode.DEFAULT, changeMode: (mode) => {}})
+const SelectionContext = createContext<SelectionContextType>({ SVGRef: null, editMode: EditMode.DEFAULT, changeMode: (mode) => { } })
 export const SelectionContextProvider = SelectionContext.Provider
 export const useSelectionContext = () => {
     const selectionContext = useContext(SelectionContext)

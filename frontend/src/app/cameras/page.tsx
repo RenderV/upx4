@@ -38,8 +38,9 @@ export default function Home() {
           }}
         >
           <div className={styles.videoContainer}>
-            <SelectionWrapper editMode={editMode} changeMode={changeMode}>
-              <VideoJS options={videoJsOptions} />
+            <SelectionWrapper editMode={editMode} size={{width: 640, height: 342}} changeMode={changeMode}>
+              {/* <VideoJS options={videoJsOptions} /> */}
+              <img src="http://localhost:3000/example.png" />
             </SelectionWrapper>
           </div>
         </TransformComponent>
