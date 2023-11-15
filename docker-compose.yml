@@ -14,7 +14,9 @@ services:
       - ./api:/usr/src/app/:Z
     ports:
       - 8000:8000
-    command: python manage.py runserver 0.0.0.0:8000
+    expose:
+      - 8000
+    command: python startserver.py
     depends_on:
       - postgres
     environment:
@@ -37,7 +39,6 @@ services:
     #         - driver: nvidia
     #           count: 1
     #           capabilities: [gpu]
-
   webapp:
     build:
       context: ./frontend
@@ -64,7 +65,7 @@ services:
   ffmpeg:
     build:
       context: ./ffmpeg
-    command: ffmpeg -re -stream_loop -1 -ss 01:47:00 -i collingwood.mp4 -c copy -f rtsp rtsp://mediamtx:8554/collingwood
+    command: ffmpeg -re -stream_loop -1 -ss 04:49:38 -i collingwood.mp4 -c copy -f rtsp rtsp://mediamtx:8554/collingwood
     volumes:
       - ${VIDEO_PATH}:/collingwood.mp4:Z
     depends_on:

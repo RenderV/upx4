@@ -2,6 +2,7 @@ from pathlib import Path
 import cv2
 import time
 import signal
+import requests
 import subprocess as sp
 from ultralytics import YOLO
 from concurrent.futures import ThreadPoolExecutor
@@ -16,8 +17,68 @@ from jsonschema.exceptions import ValidationError
 import rel
 import traceback
 import threading
+import numpy as np
+import queue
+import uuid
+import datetime
 
-logging.basicConfig(level=logging.CRITICAL)
+logging.basicConfig(level=logging.INFO)
+def process_cams_data():
+    cams = requests.get("http://api:8000/api/cams/1/").json()
+    parking_spaces = cams.get("parking_spaces")
+    selections = []
+    for parking_space in parking_spaces:
+        points = parking_space.get("selection")
+        points_ = []
+        for point in points:
+            points_.append((point.get("x"), point.get("y")))
+        selections.append(ParkingSpace(id=parking_space.get("id"), selection=points_))
+    return selections
+
+def is_valid_bgr24_image(image_array):
+    if not isinstance(image_array, np.ndarray):
+        return False
+    
+    if len(image_array.shape) != 3:
+        return False
+
+    if image_array.shape[2] != 3:
+        return False
+
+    if image_array.dtype != np.uint8:
+        return False
+
+    return True
+
+def post_report(obj_type, parking_space, runtime, obj_id):
+    url = "http://api:8000/api/records/99999999/"
+    dt = datetime.datetime.now()
+    formatted_time = dt.strftime("%H:%M:%S.%f")[:-3]  
+    r = requests.post(url, json={
+                            "obj_id": obj_id,
+                            "in_time": formatted_time,
+                             "obj_type": 1, 
+                             "parking_space": parking_space, 
+                             "runtime": runtime}
+                             )
+    logging.error(r.json().get("details"))
+    logging.error(f"Posted report with status code {r.status_code}")
+    logging.error(r.json())
+    if r.status_code == 200:
+        r = r.json().get("id")
+        if r is not None:
+            return r
+    else:
+        return None
+
+def patch_report(obj_id, obj_cls, record_id, out=False):
+    url = f"http://api:8000/api/records/{record_id}/"
+    dt = datetime.datetime.now()
+    formatted_time = dt.strftime("%H:%M:%S.%f")[:-3]  
+    ex = {} if not out else  {"out_time": formatted_time}
+    r = requests.patch(url, json={"obj_id": obj_id, "obj_cls": obj_cls} | ex)
+    return r.json()
+
 
 @dataclass
 class Vehicle:
@@ -27,8 +88,9 @@ class Vehicle:
     polygon: Polygon
 
 class ParkingSpace:
-    def __init__(self, id: str, selection: List[Iterable[float]]):
+    def __init__(self, id: str, selection: List[Iterable[float]], runtime_id=None, connect=False):
         self._id = id
+        self._runtime_id = runtime_id
         self._selection_list = []
         self._selection_polygon = Polygon()
         self._vehicles: dict[str, Vehicle] = {}
@@ -36,6 +98,7 @@ class ParkingSpace:
         self._finishing_time: dict[str, float] = {}
         self._active_ids = []
         self.selection_list = selection
+        self._record_id = None
         logging.log(logging.INFO, f"Created parking space with id {self._id}")
 
     @property
@@ -63,16 +126,19 @@ class ParkingSpace:
         self._active_ids = value
     
     def _add_vehicle(self, vehicle: Vehicle):
-        logging.log(logging.INFO, f"Vehicle {vehicle.id} entered parking space {self._id}")
-        self._vehicles[vehicle.id] = vehicle
         self._starting_time = time.monotonic()
+        self._record_id = post_report(1, self._id, self._runtime_id, vehicle.id)
+        self._vehicles[vehicle.id] = vehicle
+        logging.log(logging.INFO, f"Vehicle {vehicle.id} entered parking space {self._id}")
 
     def _del_vehicle(self, vehicle: Vehicle, finishing_time: float = None):
-        logging.log(logging.INFO, f"Vehicle {vehicle.id} left parking space {self._id}")
         del self._vehicles[vehicle.id]
         finishing_time = finishing_time or time.monotonic()
+        patch_report("car", vehicle.cls_id, self._record_id, out=True)
+        logging.log(logging.INFO, f"Vehicle {vehicle.id} left parking space {self._id}")
     
     def _update_vehicle(self, vehicle: Vehicle):
+        # patch_report(vehicle.id, vehicle.cls_id, self._record_id, out=False)
         self._vehicles[vehicle.id] = vehicle
     
     def intersects_vehicle(self, vehicle: Vehicle, threshold) -> bool:
@@ -119,7 +185,12 @@ class OccupationDetector(DetectionModel):
         threshold: int,
         model: YOLO,
         task=None,
+        frame_leap=10
     ) -> None:
+
+        self._runtime_id = uuid.uuid4()
+        self._register()
+        # send runtime id to server
         self.selections = None
         self._thread_pool = None
         self._ws = websocket.WebSocketApp(
@@ -131,9 +202,10 @@ class OccupationDetector(DetectionModel):
         self._threshold = None
         self._vehicles: dict[str, Vehicle] = {}
         self.threshold = threshold
-        self._lock = threading.Lock()
         self._active_vehicles_ids_: List[int] = []
         self._parking_spaces: dict[str, ParkingSpace] = {space.id: space for space in selection}
+        self.frame_leap = frame_leap
+        self.count = 0
         json._schema = {
             "type": "object",
             "properties": {
@@ -226,6 +298,13 @@ class OccupationDetector(DetectionModel):
 
     def log_error(self, ws, error):
         logging.log(logging.ERROR, error)
+    
+    def _register(self):
+        logging.log(logging.INFO, f"Registering runtime with id {self._runtime_id}")
+        r = requests.post(f"http://api:8000/api/cams/1/", json={"location": "brazil", "url": "http://mediamtx:8888/opencv"})
+        logging.error(f"Tried to post cams 1")
+        r2 = requests.post(f"http://api:8000/api/runtime/{self._runtime_id}/", json={"camera": 1})
+        logging.error(f"Tried to post runtime {self._runtime_id}")
 
     def _stop(self):
         pass
@@ -236,11 +315,11 @@ class OccupationDetector(DetectionModel):
                 "Threadpool already exists - must stop before creating a new one."
         )
         self._thread_pool = ThreadPoolExecutor(max_workers=10)
-        self._thread_pool.submit(self.traceback_run_forever)
+        self._thread_pool.submit(self.receive_websockets_messages)
         rel.signal(2, rel.abort)
         logging.log(logging.INFO, f"Started websocket threadpool")
     
-    def traceback_run_forever(self):
+    def receive_websockets_messages(self):
         try:
             self._ws.run_forever()
         except Exception as e:
@@ -250,10 +329,14 @@ class OccupationDetector(DetectionModel):
     def post_results(self, class_name):
         pass
 
-    def perform_detection(self, frame, calculate_area, classes, *args, **kwargs) -> List:
+    def perform_detection(self, frame, classes, skip_detections=True, *args, **kwargs) -> List:
         logging.log(logging.DEBUG, f"Performing detection on frame")
-        results = self.model.track(frame, persist=True, verbose=False, tracker="bytetrack.yaml")
-        if(not calculate_area): return results
+        results = self.model.track(frame, persist=True, classes=classes, tracker="bytetrack.yaml")
+        if(skip_detections and self.count >= self.frame_leap):
+            self.count = 0
+            return results
+        elif(self.count < self.frame_leap):
+            self.count += 1
         masks, cls_list, cls_probs, id_list = [], [], [], []
         if(results[0].masks is not None):
             masks = results[0].masks.xy
@@ -270,7 +353,7 @@ class OccupationDetector(DetectionModel):
                 v =  Vehicle(id, cls_, conf, Polygon(mask))
                 self._vehicles[id] = v
                 for parking_space in self._parking_spaces.values():
-                    intersects = parking_space.intersects_vehicle(v, self.threshold)
+                    parking_space.intersects_vehicle(v, self.threshold)
         except Exception as e:
             logging.log(logging.ERROR, f"Error while computing intersections")
             traceback.print_exc()
@@ -289,7 +372,12 @@ class YoloRTSP:
         ffmpeg_cmd: str = "ffmpeg",
         classes: List[str] = None,
     ) -> None:
-        vcap = cv2.VideoCapture(input_url)
+
+        self._frame_to_send = None
+        self._frame_queue = queue.Queue(50)
+
+        self._input_url = input_url
+        vcap = cv2.VideoCapture(input_url, cv2.CAP_FFMPEG)
 
         if not vcap.isOpened():
             raise ConnectionError("Could not open video capture")
@@ -298,14 +386,14 @@ class YoloRTSP:
             self._model = DetectionModel(YOLO())
             logging.log(logging.INFO, f"Using default model {DetectionModel.__name__}")
         elif isinstance(model, str):
-            self._model = DetectionModel(model)
+            self._model = DetectionModel(YOLO(model))
             logging.log(logging.INFO, f"Using default model {DetectionModel.__name__} with file {model}")
         elif isinstance(model, DetectionModel):
             self._model = model
             logging.log(logging.INFO, f"Using custom model {model.__class__.__name__}")
         else:
             raise ValueError(
-                f"model attribute must be an instance of {str.__name__} or {DetectionModel.__name__}, but got {model.__class__.__name__}"
+                f"model attribute must be an instance of {str} or {DetectionModel.__name__}, but got {model.__class__.__name__}"
             )
         self._class_dict = {v: k for k, v in self._model.model.names.items()}
 
@@ -324,8 +412,6 @@ class YoloRTSP:
         self._fps = fps or int(vcap.get(cv2.CAP_PROP_FPS))
         self._T = 1 / self._fps
         self._process = None
-        self._current_frame_byte_ = None
-        self._current_frame_ = None
         self._is_stopped_ = True
         self._thread_pool = None
         self._vcap = vcap
@@ -344,21 +430,6 @@ class YoloRTSP:
     def height(self) -> int:
         return self._img_height
 
-    @property
-    def _current_frame(self):
-        return self._current_frame_
-
-    @_current_frame.setter
-    def _current_frame(self, frame):
-        with self._lock:
-            self._current_frame_ = frame
-            self._current_frame_byte_ = frame.tobytes()
-    
-    @property
-    def _current_frame_byte(self):
-        with self._lock:
-            return self._current_frame_byte_
-    
     @property
     def _is_stopped(self) -> bool:
         return self._is_stopped_
@@ -383,10 +454,16 @@ class YoloRTSP:
             raise KeyError(
                 f"Invalid value. Values must be a list of the following possible values: {self._class_dict.keys()}"
             )
+    
+    def queue_put(self, value):
+        if(self._frame_queue.qsize() > 1):
+            self._frame_queue.get()
+        self._frame_queue.put(value)
 
     def start_ffmpeg_stream(self) -> None:
         if(self._process is not None):
             self._process.kill()
+
         command = [
             self._ffmpeg_cmd,
             "-re",
@@ -415,77 +492,90 @@ class YoloRTSP:
             self._output_url,
         ]
 
+
         self._process = sp.Popen(command, stdin=sp.PIPE)
         logging.log(logging.INFO, f"Started ffmpeg process with command {command}")
 
-    def _update(self) -> None:
-        logging.log(logging.DEBUG, f"Updating frame")
-        if self._current_frame is not None:
-            if self._process is None or self._process.poll() is not None:
-                logging.log(logging.INFO, f"Starting ffmpeg stream")
-                self.start_ffmpeg_stream()
-            try:
-                self._process.stdin.write(self._current_frame_byte)
-            except BrokenPipeError:
-                logging.log(logging.ERROR, f"Broken pipe error")
-                self._process.kill()
-                self._process = None
-                self.start_ffmpeg_stream()
-            logging.log(logging.DEBUG, f"Updated frame")
-            self._last_frame_update = time.monotonic()
-
-    def _track(self, force_refresh_rate: bool) -> None:
+    def _send(self, frame) -> None:
         try:
-            while self._vcap.isOpened() and not self._is_stopped:
-                ret, frame = self._vcap.read()
-                frame_pos = self._vcap.get(cv2.CAP_PROP_POS_FRAMES)
-                if ret:
-                    results = self._model.perform_detection(
-                        frame, classes=self._classes, calculate_area=(frame_pos % 15 == 0)
-                    )
-                    annotated_frame = results[0].plot(boxes=False)
-                    self._current_frame = annotated_frame
-                    if not force_refresh_rate:
-                        self._update()
-        except Exception as e:
+            if not is_valid_bgr24_image(frame) and frame is not None:
+                logging.error("not a valid frame!")
+                return
+            if frame is not None:
+                if self._process is None or self._process.poll() is not None:
+                    logging.log(logging.INFO, f"Starting ffmpeg stream")
+                    self.start_ffmpeg_stream()
+                try:
+                    self._process.stdin.write(frame.tobytes())
+                except BrokenPipeError:
+                    logging.log(logging.ERROR, f"Broken pipe error")
+                    self._process.kill()
+                    self._process = None
+                    self.start_ffmpeg_stream()
+        except:
             traceback.print_exc()
-            raise e
-
-    def _capture(self, force_refresh_rate: bool) -> None:
+        
+    
+    def _receive(self):
+        logging.log(logging.ERROR, "Started receiving")
         while self._vcap.isOpened() and not self._is_stopped:
             try:
+                retry = False
                 ret, frame = self._vcap.read()
                 if ret:
-                    self._current_frame = frame
-                    if not force_refresh_rate:
-                        self._update()
-            except Exception as e:
+                    if(retry):
+                        logging.error("success!")
+                        retry = False
+                    self.queue_put(frame)
+                elif not ret:
+                    retry = True
+                    if(not retry):
+                        logging.error("invalid VIDEO, trying to recconect...")
+                    else:
+                        logging.error("failed")
+                    self._vcap = cv2.VideoCapture(self._input_url, cv2.CAP_FFMPEG)
+                    continue
+            except:
                 traceback.print_exc()
-                print(e)
-                raise e
-
-    def _upload_loop(self) -> None:
-        starttime = time.monotonic()
-        while not self._is_stopped:
-            self._update()
+    
+    def _track(self, inference=True) -> None:
+        logging.log(logging.ERROR, "Started tracking")
+        while True:
+            try:
+                frame = self._frame_queue.get()
+                if(inference):
+                    results = self._model.perform_detection(
+                        frame, classes=self._classes
+                    )
+                    with self._lock:
+                        self._frame_to_send = results[0].plot()
+                else:
+                    with self._lock:
+                        self._frame_to_send = frame
+                self._frame_queue.task_done()
+            except:
+                traceback.print_exc()
+    
+    def _send_loop(self,):
+        logging.log(logging.ERROR, "Started sending")
+        while True:
+            starttime = time.monotonic()
+            with self._lock:
+                self._send(self._frame_to_send)
             time.sleep(self._T - ((time.monotonic() - starttime) % self._T))
 
-    def stream(self, inference: bool = True, force_refresh_rate: bool = True) -> None:
-        logging.log(logging.INFO, f"Starting stream with inference {inference} and force refresh rate {force_refresh_rate}")
+    
+
+    def stream(self, inference: bool = True) -> None:
         self._is_stopped = False
         if self._thread_pool is not None:
             raise RuntimeError(
                 "Threadpool already exists - must stop before creating a new one."
             )
         self._thread_pool = ThreadPoolExecutor(max_workers=10)
-        if inference:
-            self._thread_pool.submit(self._track, force_refresh_rate=force_refresh_rate)
-        else:
-            self._thread_pool.submit(
-                self._capture, force_refresh_rate=force_refresh_rate
-            )
-        if force_refresh_rate:
-            self._thread_pool.submit(self._upload_loop)
+        self._thread_pool.submit(self._receive)
+        self._thread_pool.submit(self._track, inference=True)
+        self._thread_pool.submit(self._send_loop)
 
     def stop(self) -> None:
         logging.log(logging.INFO, f"Stopping stream")
@@ -518,12 +608,21 @@ def create_signal_handler(streamers: List[YoloRTSP]) -> None:
 if __name__ == "__main__":
     urls = get_urls()
     streamers = []
-    test_selections = [ParkingSpace(id="3232", selection=[(0, 0), (700, 0), (700, 1000), (0, 1000)])]
-    model = OccupationDetector("ws://api:8000/ws/1/", selection=test_selections, threshold=0.3, model=YOLO("yolov8n-seg.pt"))
+    requests.post("http://api:8000/api/cams/1/", json={"location": "Brazil", "url": "http://mediamtx:8888/opencv"})
+    cams = requests.get("http://api:8000/api/cams/1/").json()
+    parking_spaces = cams.get("parking_spaces")
+    selections = []
+    for parking_space in parking_spaces:
+        points = parking_space.get("selection")
+        points_ = []
+        for point in points:
+            points_.append((point.get("x"), point.get("y")))
+        selections.append(ParkingSpace(id=parking_space.get("id"), selection=points_))
+    model = OccupationDetector("ws://api:8000/ws/1/", selection=selections, threshold=0.3, model=YOLO("yolov8n-seg.pt"))
     logging.log(logging.INFO, f"Created model {model}")
     model.start()
     for file_url, rtsp_server in zip(*urls):
-        streamer = YoloRTSP(file_url, rtsp_server, classes=["car"], model=model)
-        streamer.stream(inference=True, force_refresh_rate=True)
+        streamer = YoloRTSP(file_url, rtsp_server, classes=["car", "truck"], model=model)
+        streamer.stream(inference=True)
         streamers.append(streamer)
     signal.signal(signal.SIGINT, create_signal_handler(streamers))

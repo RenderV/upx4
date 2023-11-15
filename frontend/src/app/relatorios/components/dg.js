@@ -4,39 +4,55 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { Typography } from '@mui/material';
 import useMediaQuery from '@mui/material/useMediaQuery';
 
+function convertTimeFormat(timeString) {
+  const timeComponents = timeString.split(':');
+
+  const hours = parseInt(timeComponents[0], 10);
+  const minutes = parseInt(timeComponents[1], 10);
+  const secondsAndMicroseconds = timeComponents[2].split('.');
+  const seconds = parseInt(secondsAndMicroseconds[0], 10);
+  const milliseconds = parseInt(secondsAndMicroseconds[1], 10);
+
+  const date = new Date();
+  date.setHours(hours);
+  date.setMinutes(minutes);
+  date.setSeconds(seconds);
+  date.setMilliseconds(milliseconds);
+
+  const formattedTime = date.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
+
+  return formattedTime;
+}
+
+
 export default function Dg({rows, className}){
 
     const columns = [
-      { field: 'id', headerName: 'ID', width: 90 },
+      { field: 'obj_id', headerName: 'ID', width: 90 },
       {
-        field: 'firstName',
-        headerName: 'First name',
+        field: 'in_time',
+        headerName: 'Entrada',
         width: 150,
         editable: false,
       },
       {
-        field: 'lastName',
-        headerName: 'Last name',
-        width: 150,
+        field: 'out_time',
+        headerName: 'Saída',
         editable: false,
       },
       {
-        field: 'age',
-        headerName: 'Age',
-        type: 'number',
+        field: 'obj_type',
+        headerName: 'Tipo',
         width: 110,
         editable: false,
       },
       {
-        field: 'fullName',
-        headerName: 'Full name',
+        field: 'parking_space',
+        headerName: 'parkingSpace',
         description: 'This column has a value getter and is not sortable.',
-        sortable: false,
         width: 160,
-        valueGetter: (params) =>
-          `${params.row.firstName || ''} ${params.row.lastName || ''}`,
       },
-    ]
+    ];
     const matches = useMediaQuery('(max-width:900px)')
     return (
         <DataGrid

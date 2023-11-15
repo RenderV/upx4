@@ -131,7 +131,7 @@ export function SelectorPoint({
             allowMovement={allowMovement}
             onMove={moveLine}
             onFinishMoving={onFinishMoving}
-            onMouseDown={() => {console.log("x: ", point.x, "y: ", point.x)}}
+            onMouseDown={onMouseDown}
         >
             <rect
                 width={pointRadius * 2}

@@ -31,7 +31,7 @@ SECRET_KEY = 'django-insecure-&skq^hb@=m7@@slslrajtiv#3d^1j%)0zl!_m1@tqnl#td=2nl
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["api", "localhost"]
 
 
 # Application definition
@@ -148,16 +148,17 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-APPEND_SLASH = False
-
-#django-channels setting
-ASGI_APPLICATION = "myproject.asgi.application"
+APPEND_SLASH = True
 
 CHANNEL_LAYERS = {
     "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [("127.0.0.1", 6379)],
-        },
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
     },
+}
+
+#django-channels setting
+ASGI_APPLICATION = "smartpark.asgi.application"
+
+REST_FRAMEWORK = {
+    'DATETIME_FORMAT': "%Y-%m-%dT%H:%M:%S.%fZ",
 }

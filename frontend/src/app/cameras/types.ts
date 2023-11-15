@@ -70,7 +70,7 @@ export declare interface SVGLineProps extends CommonProps {
 }
 
 export declare interface SVGSelectionProps extends CommonProps {
-    onSelectionUpdate?: (selection: SelectionType) => void;
+    selectionUpdate?: (selection: SelectionType) => void;
     points: SelectionType;
     isOpen: boolean;
     openLineRefCallback?: ((node: Element) => void);
@@ -94,6 +94,7 @@ export declare interface SVGSelectorProps {
     editMode: EditMode;
     changeMode: (mode: EditMode) => void
     onKeyDown?: React.KeyboardEventHandler
+    setSelections: any
 }
 
 export declare type SelectionContextType = {

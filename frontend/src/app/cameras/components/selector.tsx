@@ -7,6 +7,38 @@ import { SelectorLine, SelectorPoint, Label } from "./movableSVGElements";
 import { v4 as uuidv4 } from 'uuid'
 import styles from "./selector.module.css";
 
+async function postSelection(url: string, data: any) {
+    let response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': 'csrftoken'
+        },
+        body: JSON.stringify(data)
+    });
+    if(!response.ok){
+        response = await fetch(url, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': 'csrftoken'
+            },
+            body: JSON.stringify(data)
+        });
+    }
+    return response.json();
+}
+async function deleteSelectionAPI(url: string) {
+    var response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': 'csrftoken'
+        }
+    });
+    return response;
+}
+
 export const modeMap: ModeMapType = {
     [EditMode.DEFAULT]: {
         allowedActions: ["VIEW", "VIEW_MOVEMENT"],
@@ -33,7 +65,7 @@ export const modeMap: ModeMapType = {
 
 export function Selection({
     allowMovement,
-    onSelectionUpdate,
+    selectionUpdate,
     onClose,
     onMouseDown,
     points,
@@ -41,12 +73,35 @@ export function Selection({
     isOpen,
 }: SVGSelectionProps) {
     const pointRadius = 7;
-    const [currentPoints, setPoints] = useState(points)
+    const [pointState, setPointState] = useState(points)
+    var currentPoints: SelectionType
+    if(selectionUpdate){
+        currentPoints = points
+    } else {
+        currentPoints = pointState
+    }
+    const setPoints = (selection: SelectionType | ((selection: SelectionType) => SelectionType)) => {
+        if(selectionUpdate && typeof selection !== "function")
+            selectionUpdate(selection)
+        else if(selectionUpdate && typeof selection === "function")
+            selectionUpdate(selection(currentPoints))
+        else if (selectionUpdate === undefined)
+            setPointState(selection)
+    }
     const [labelOffset, setLabelOffset] = useState<Coords2D>({ x: 0, y: 0 })
 
     useEffect(() => {
-        if(onSelectionUpdate) onSelectionUpdate(currentPoints)
-    }, [currentPoints])
+        const url = `http://localhost:8000/api/parking_space/${currentPoints.objId}/`
+        const id = currentPoints.objId
+        const data = {
+            "label": currentPoints.label.slice(0, 29),
+            "camera": 1,
+            "selection": currentPoints.points.map((p) => {return {"x": p.x, "y": p.y}})
+        }
+        postSelection(url, data)
+
+
+    }, [points])
 
     var bbox = {
         minX: Infinity,
@@ -194,7 +249,8 @@ export default function Selector({
     initialSelections,
     editMode,
     changeMode,
-    onKeyDown
+    onKeyDown,
+    setSelections
 }: SVGSelectorProps) {
     const svgRef = useRef<SVGSVGElement | null>(null)
     if (svgRef.current)
@@ -202,18 +258,22 @@ export default function Selector({
     const mode = modeMap[editMode]
     if (typeof initialSelections === "undefined")
         initialSelections = []
-    const [selections, setSelections] = useState(initialSelections)
+    // const [selections, setSelections] = useState(initialSelections)
+    const selections = initialSelections
     const [isDrawing, setDrawingState] = useState(false)
     const openLineRef = useRef<Element | null>(null)
-    console.log(selections.map((s => {
-        return s.points.map((p) => {
-            return `(${p.x}, ${p.y})`
-        }).join(", ")
-    })))
-
-
     const handleOpenLine = (node: Element) => {
         openLineRef.current = node
+    }
+    useEffect(() => {
+        setSelections(initialSelections)
+    }, [initialSelections])
+
+    const selectionUpdate = (selection: SelectionType) => {
+        const newSelections = [...selections]
+        const idx = newSelections.findIndex((s) => s.objId === selection.objId)
+        newSelections[idx] = selection
+        setSelections(newSelections)
     }
 
     const handleMouseMove: React.MouseEventHandler = (e) => {
@@ -248,6 +308,7 @@ export default function Selector({
     const deleteSelection = (idx: number) => {
         if (!mode.allowedActions.includes("SELECTION_DELETION")) return
         const newSelections = [...selections]
+        deleteSelectionAPI(`http://localhost:8000/api/parking_space/${newSelections[idx].objId}/`)
         newSelections.splice(idx, 1)
         setSelections(newSelections)
     }
@@ -287,6 +348,7 @@ export default function Selector({
                         points={selection}
                         isOpen={false}
                         onMouseDown={() => deleteSelection(i)}
+                        selectionUpdate={selectionUpdate}
                     />
                 ))}
                 {IncompleteSelection}
