@@ -100,7 +100,6 @@ export function Selection({
         }
         postSelection(url, data)
 
-
     }, [points])
 
     var bbox = {

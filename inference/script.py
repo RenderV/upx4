@@ -23,17 +23,6 @@ import uuid
 import datetime
 
 logging.basicConfig(level=logging.INFO)
-def process_cams_data():
-    cams = requests.get("http://api:8000/api/cams/1/").json()
-    parking_spaces = cams.get("parking_spaces")
-    selections = []
-    for parking_space in parking_spaces:
-        points = parking_space.get("selection")
-        points_ = []
-        for point in points:
-            points_.append((point.get("x"), point.get("y")))
-        selections.append(ParkingSpace(id=parking_space.get("id"), selection=points_))
-    return selections
 
 def is_valid_bgr24_image(image_array):
     if not isinstance(image_array, np.ndarray):
@@ -50,14 +39,14 @@ def is_valid_bgr24_image(image_array):
 
     return True
 
-def post_report(obj_type, parking_space, runtime, obj_id):
+def post_report(obj_id, obj_cls, parking_space, runtime):
     url = "http://api:8000/api/records/99999999/"
-    dt = datetime.datetime.now()
-    formatted_time = dt.strftime("%H:%M:%S.%f")[:-3]  
+    dt = datetime.datetime.utcnow()
+    formatted_time = dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]  
     r = requests.post(url, json={
                             "obj_id": obj_id,
                             "in_time": formatted_time,
-                             "obj_type": 1, 
+                             "obj_type": obj_cls, 
                              "parking_space": parking_space, 
                              "runtime": runtime}
                              )
@@ -73,12 +62,13 @@ def post_report(obj_type, parking_space, runtime, obj_id):
 
 def patch_report(obj_id, obj_cls, record_id, out=False):
     url = f"http://api:8000/api/records/{record_id}/"
-    dt = datetime.datetime.now()
-    formatted_time = dt.strftime("%H:%M:%S.%f")[:-3]  
-    ex = {} if not out else  {"out_time": formatted_time}
-    r = requests.patch(url, json={"obj_id": obj_id, "obj_cls": obj_cls} | ex)
+    dt = datetime.datetime.utcnow()
+    formatted_time = dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]  
+    if(out):
+        r = requests.patch(url, json={"obj_id": obj_id, "obj_cls": obj_cls, "out_time": formatted_time, "last_seen": formatted_time})
+    else:
+        r = requests.patch(url, json={"obj_id": obj_id, "obj_cls": obj_cls, "last_seen": formatted_time})
     return r.json()
-
 
 @dataclass
 class Vehicle:
@@ -93,12 +83,16 @@ class ParkingSpace:
         self._runtime_id = runtime_id
         self._selection_list = []
         self._selection_polygon = Polygon()
+        self._max_inactive_tolerance = 10
+
         self._vehicles: dict[str, Vehicle] = {}
+        self._ious: dict[str, float] = {}
         self._starting_time: dict[str, float] = {}
-        self._finishing_time: dict[str, float] = {}
+        self._last_marked_occupy: dict[str, float] = {}
+
         self._active_ids = []
         self.selection_list = selection
-        self._record_id = None
+        self._record_ids: dict[str, float] = {}
         logging.log(logging.INFO, f"Created parking space with id {self._id}")
 
     @property
@@ -125,28 +119,45 @@ class ParkingSpace:
     def active_ids(self, value):
         self._active_ids = value
     
-    def _add_vehicle(self, vehicle: Vehicle):
-        self._starting_time = time.monotonic()
-        self._record_id = post_report(1, self._id, self._runtime_id, vehicle.id)
+    def _add_vehicle(self, vehicle: Vehicle, iou: float):
+        self._starting_time[vehicle.id]= time.monotonic()
+        self._record_ids[vehicle.id] = post_report(vehicle.id, vehicle.cls_id, self._id, self._runtime_id)
+        self._ious[vehicle.id] = iou
         self._vehicles[vehicle.id] = vehicle
+        self._last_marked_occupy[vehicle.id] = time.monotonic()
+
         logging.log(logging.INFO, f"Vehicle {vehicle.id} entered parking space {self._id}")
 
-    def _del_vehicle(self, vehicle: Vehicle, finishing_time: float = None):
+    def _del_vehicle(self, vehicle: Vehicle):
+        patch_report(vehicle.id, vehicle.cls_id, self._record_ids[vehicle.id], out=True)
         del self._vehicles[vehicle.id]
-        finishing_time = finishing_time or time.monotonic()
-        patch_report("car", vehicle.cls_id, self._record_id, out=True)
+        del self._ious[vehicle.id]
+        del self._starting_time[vehicle.id]
+        del self._last_marked_occupy[vehicle.id]
+        del self._record_ids[vehicle.id]
+
+        finishing_time = time.monotonic()
         logging.log(logging.INFO, f"Vehicle {vehicle.id} left parking space {self._id}")
     
     def _update_vehicle(self, vehicle: Vehicle):
-        # patch_report(vehicle.id, vehicle.cls_id, self._record_id, out=False)
+        patch_report(vehicle.id, vehicle.cls_id, self._record_ids[vehicle.id], out=False)
         self._vehicles[vehicle.id] = vehicle
+        self._last_marked_occupy[vehicle.id] = time.monotonic()
     
-    def intersects_vehicle(self, vehicle: Vehicle, threshold) -> bool:
+    def update_status(self):
+        for vehicle in self._vehicles.values():
+            if(self._should_delete(vehicle)):
+                self._del_vehicle(vehicle)
+    
+    def _should_delete(self, vehicle: Vehicle) -> bool:
+        return time.monotonic() - self._last_marked_occupy[vehicle.id] > self._max_inactive_tolerance
+    
+    def eval_vehicle(self, vehicle: Vehicle, threshold) -> bool:
         intersection = self._selection_polygon.intersection(vehicle.polygon)
         key_exists = vehicle.id in self._vehicles
 
-        if intersection.area == 0 and key_exists:
-            self._del_vehicle(vehicle)
+        # if intersection.area == 0 and key_exists and self._should_delete(vehicle):
+        #     self._del_vehicle(vehicle)
         if intersection.area == 0:
             return False
 
@@ -154,14 +165,14 @@ class ParkingSpace:
         logging.log(logging.DEBUG, f"Vehicle area: {vehicle.polygon.area}\nSelection area: {self._selection_polygon.area}\nIntersection ratio: {intersection_ratio}")
 
         if intersection_ratio > threshold and not key_exists:
-            self._add_vehicle(vehicle)
+            self._add_vehicle(vehicle, intersection_ratio)
             return True
         elif intersection_ratio > threshold and key_exists:
             self._update_vehicle(vehicle)
             return True
-        elif key_exists:
-            self._del_vehicle(vehicle)
-            return False
+        # elif key_exists:
+        #     self._del_vehicle(vehicle)
+        #     return False
     
     def __export__(self):
         return {
@@ -181,17 +192,15 @@ class OccupationDetector(DetectionModel):
     def __init__(
         self,
         ws_url: str,
-        selection: List[ParkingSpace],
         threshold: int,
         model: YOLO,
-        task=None,
         frame_leap=10
     ) -> None:
 
         self._runtime_id = uuid.uuid4()
         self._register()
         # send runtime id to server
-        self.selections = None
+        self._selections = self._fetch_selections()
         self._thread_pool = None
         self._ws = websocket.WebSocketApp(
             url=ws_url, on_message=self._parse_message, on_error=self.log_error, on_close=self._stop
@@ -203,7 +212,7 @@ class OccupationDetector(DetectionModel):
         self._vehicles: dict[str, Vehicle] = {}
         self.threshold = threshold
         self._active_vehicles_ids_: List[int] = []
-        self._parking_spaces: dict[str, ParkingSpace] = {space.id: space for space in selection}
+        self._parking_spaces: dict[str, ParkingSpace] = {space.id: space for space in self._selections}
         self.frame_leap = frame_leap
         self.count = 0
         json._schema = {
@@ -243,6 +252,10 @@ class OccupationDetector(DetectionModel):
     @property
     def _parking_spaces(self):
         return self._parking_spaces_
+    
+    @property
+    def runtime_id(self):
+        return self._runtime_id
     
     @_parking_spaces.setter
     def _parking_spaces(self, value):
@@ -286,7 +299,7 @@ class OccupationDetector(DetectionModel):
                 for parking_space in parking_spaces_list:
                     space_id = parking_space.get("id")
                     coordinates: List[Iterable[float]] = parking_space.get("coordinates")
-                    new_space = ParkingSpace(id=space_id, selection_polygon=coordinates)
+                    new_space = ParkingSpace(id=space_id, selection_polygon=coordinates, runtime_id=self._runtime_id)
                     if(self._parking_spaces.get(new_space.id) is None):
                         self._parking_spaces[new_space.id] = new_space
                         logging.log(logging.INFO, f"Added new parking space with id {new_space.id}")
@@ -315,21 +328,50 @@ class OccupationDetector(DetectionModel):
                 "Threadpool already exists - must stop before creating a new one."
         )
         self._thread_pool = ThreadPoolExecutor(max_workers=10)
-        self._thread_pool.submit(self.receive_websockets_messages)
+        # self._thread_pool.submit(self.receive_websockets_messages)
+        self._thread_pool.submit(self._fetch_polling)
         rel.signal(2, rel.abort)
         logging.log(logging.INFO, f"Started websocket threadpool")
     
-    def receive_websockets_messages(self):
-        try:
-            self._ws.run_forever()
-        except Exception as e:
-            traceback.print_exc()
-            raise e
+    # def receive_websockets_messages(self):
+    #     try:
+    #         self._ws.run_forever()
+    #     except Exception as e:
+    #         traceback.print_exc()
+    #         raise e
+    def _fetch_polling(self):
+        while True:
+            try:
+                selections = self._fetch_selections()
+                selections_ids = [selection.id for selection in selections]
+                for selection in selections:
+                    if(selection.id in self._parking_spaces.keys()):
+                        self._parking_spaces[selection.id].selection_list = selection.selection_list
+                    else:
+                        self._parking_spaces[selection.id] = selection
+                keys = list(self._parking_spaces.values())
+                for parking_space in keys:
+                    if parking_space.id not in selections_ids:
+                        del self._parking_spaces[parking_space.id]
+                time.sleep(0.1)
+                logging.log(logging.INFO, f"Fetched selections")
+            except Exception as e:
+                logging.log(logging.ERROR, f"Error while fetching selections")
+                traceback.print_exc()
     
-    def post_results(self, class_name):
-        pass
-
-    def perform_detection(self, frame, classes, skip_detections=True, *args, **kwargs) -> List:
+    def _fetch_selections(self) -> List[ParkingSpace]:
+        cams = requests.get("http://api:8000/api/cams/1/").json()
+        parking_spaces = cams.get("parking_spaces")
+        selections = []
+        for parking_space in parking_spaces:
+            points = parking_space.get("selection")
+            points_ = []
+            for point in points:
+                points_.append((point.get("x"), point.get("y")))
+            selections.append(ParkingSpace(id=parking_space.get("id"), selection=points_))
+        return selections
+    
+    def perform_detection(self, frame, classes, skip_detections=False, *args, **kwargs) -> List:
         logging.log(logging.DEBUG, f"Performing detection on frame")
         results = self.model.track(frame, persist=True, classes=classes, tracker="bytetrack.yaml")
         if(skip_detections and self.count >= self.frame_leap):
@@ -353,7 +395,8 @@ class OccupationDetector(DetectionModel):
                 v =  Vehicle(id, cls_, conf, Polygon(mask))
                 self._vehicles[id] = v
                 for parking_space in self._parking_spaces.values():
-                    parking_space.intersects_vehicle(v, self.threshold)
+                    parking_space.eval_vehicle(v, self.threshold)
+                    parking_space.update_status()
         except Exception as e:
             logging.log(logging.ERROR, f"Error while computing intersections")
             traceback.print_exc()
@@ -565,7 +608,6 @@ class YoloRTSP:
             time.sleep(self._T - ((time.monotonic() - starttime) % self._T))
 
     
-
     def stream(self, inference: bool = True) -> None:
         self._is_stopped = False
         if self._thread_pool is not None:
@@ -609,16 +651,7 @@ if __name__ == "__main__":
     urls = get_urls()
     streamers = []
     requests.post("http://api:8000/api/cams/1/", json={"location": "Brazil", "url": "http://mediamtx:8888/opencv"})
-    cams = requests.get("http://api:8000/api/cams/1/").json()
-    parking_spaces = cams.get("parking_spaces")
-    selections = []
-    for parking_space in parking_spaces:
-        points = parking_space.get("selection")
-        points_ = []
-        for point in points:
-            points_.append((point.get("x"), point.get("y")))
-        selections.append(ParkingSpace(id=parking_space.get("id"), selection=points_))
-    model = OccupationDetector("ws://api:8000/ws/1/", selection=selections, threshold=0.3, model=YOLO("yolov8n-seg.pt"))
+    model = OccupationDetector("ws://api:8000/ws/1/", threshold=0.6, model=YOLO("yolov8n-seg.pt"))
     logging.log(logging.INFO, f"Created model {model}")
     model.start()
     for file_url, rtsp_server in zip(*urls):

@@ -38,6 +38,7 @@ ALLOWED_HOSTS = ["api", "localhost"]
 
 INSTALLED_APPS = [
     'cams',
+    'corsheaders',
 
     'rest_framework',
     'debug_toolbar',
@@ -52,6 +53,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -60,15 +62,14 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.common.CommonMiddleware', 
-    'django.middleware.common.CommonMiddleware',   
-
-    'corsheaders.middleware.CorsMiddleware',
     'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.middleware.common.CommonMiddleware',
 ]
 
 CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
+    "http://localhost:3000",
+    "http://localhost:8000",
     "http://127.0.0.1:8000",
 ]
 
@@ -158,7 +159,3 @@ CHANNEL_LAYERS = {
 
 #django-channels setting
 ASGI_APPLICATION = "smartpark.asgi.application"
-
-REST_FRAMEWORK = {
-    'DATETIME_FORMAT': "%Y-%m-%dT%H:%M:%S.%fZ",
-}

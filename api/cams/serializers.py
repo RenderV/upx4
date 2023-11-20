@@ -13,6 +13,7 @@ class ParkingSpaceSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 class RecordSerializer(serializers.ModelSerializer):
+    parking_space_label = serializers.CharField(source="get_parking_space_label", read_only=True)
     class Meta:
         model = Record
         fields = "__all__"

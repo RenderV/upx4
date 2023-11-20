@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+from datetime import datetime
 
 class ObjectTypes(models.Model):
     name = models.CharField(max_length=20, unique=True)
@@ -21,9 +22,16 @@ class Runtime(models.Model):
     creation_time = models.DateTimeField(default=timezone.now)
 
 class Record(models.Model):
-    in_time = models.TimeField(null=True)
-    out_time = models.TimeField(null=True)
+    in_time = models.DateTimeField(null=True)
+    out_time = models.DateTimeField(null=True)
+    last_seen = models.DateTimeField(null=True)
     obj_id = models.CharField()
     obj_type = models.CharField()
     parking_space = models.ForeignKey(to=ParkingSpace, on_delete=models.CASCADE)
     runtime = models.ForeignKey(to=Runtime, on_delete=models.CASCADE, null=True)
+
+    def get_parking_space_label(self):
+        return self.parking_space.label
+
+    def is_active(self):
+        return self.out_time is None

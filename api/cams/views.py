@@ -6,6 +6,7 @@ from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 import jsonschema, json
+import logging
 
 schema = {
   "$schema": "http://json-schema.org/draft-07/schema#",
@@ -29,6 +30,8 @@ class CameraListViewSet(ListAPIView):
     model = Camera
     serializer_class = CameraSerializer
     queryset = Camera.objects.all()
+    def get_queryset(self):
+        return Camera.objects.all()
 
 class CameraView(APIView):
     def get(self, request, camera_id):
@@ -54,6 +57,7 @@ class ParkingSpaceView(APIView):
     def get(self, request, parking_space_id):
         parking_space = get_object_or_404(ParkingSpace, pk=parking_space_id)
         serializer = ParkingSpaceSerializer(parking_space)
+        logging.error(serializer.errors)
         return Response(serializer.data)
     def post(self, request, parking_space_id):
         selection = request.data.get("selection")
@@ -71,6 +75,7 @@ class ParkingSpaceView(APIView):
         if(serializer.is_valid()):
             serializer.save()
             return Response(serializer.data, status=200)
+        logging.error(serializer.errors)
         return Response(serializer.errors, status=400)
     def patch(self, request, parking_space_id):
         parking_space = get_object_or_404(ParkingSpace, pk=parking_space_id)
@@ -89,6 +94,7 @@ class ParkingSpaceView(APIView):
         if(serializer.is_valid()):
             serializer.update(parking_space, serializer.validated_data)
             return Response(serializer.data)
+        logging.error(serializer.errors)
         return Response(serializer.errors, status=400)
     def delete(self, request, parking_space_id):
         parking_space = get_object_or_404(ParkingSpace, pk=parking_space_id)
@@ -98,7 +104,7 @@ class ParkingSpaceView(APIView):
 class RecordListViewSet(ListAPIView):
     model = Record
     serializer_class = RecordSerializer
-    queryset = Record.objects.all()
+    queryset = Record.objects.all().order_by("-in_time")
 
 class RecordView(APIView):
     def get(self, request, record_id):
@@ -112,6 +118,7 @@ class RecordView(APIView):
             "out_time": request.data.get("out_time"),
             "obj_id": request.data.get("obj_id"),
             "obj_type": request.data.get("obj_type"),
+            "last_seen": request.data.get("in_time"),
             "parking_space": request.data.get("parking_space"),
         }
         serializer = RecordSerializer(data=data)
@@ -126,12 +133,14 @@ class RecordView(APIView):
             "out_time": request.data.get("out_time", record.out_time),
             "obj_id": request.data.get("obj_id", record.obj_id),
             "obj_type": request.data.get("obj_type", record.obj_type),
+            "last_seen": request.data.get("last_seen"),
             "parking_space": request.data.get("parking_space", record.parking_space.id),
         }
         serializer = RecordSerializer(record, data=data, partial=True)
         if(serializer.is_valid()):
             serializer.update(record, serializer.validated_data)
             return Response(serializer.data)
+        logging.error(serializer.errors)
         return Response(serializer.errors, status=400)
 
 class RuntimeListViewSet(ListAPIView):
