@@ -3,6 +3,8 @@ FROM ubuntu
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ=America/New_York
 
+COPY ./requirements.txt ./requirements.txt
+
 RUN apt-get update \
     && apt-get install -y curl gpg \
     && curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
@@ -11,7 +13,7 @@ RUN apt-get update \
     tee /etc/apt/sources.list.d/nvidia-container-toolkit.list \
     && apt-get update \
     && apt-get install -y nvidia-container-toolkit python3 python3-pip ffmpeg \
-    && pip install --no-cache-dir ultralytics rel shapely jsonschema websocket-client \
+    && pip install --no-cache-dir -r requirements.txt \
     && apt-get remove -y curl gpg \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*

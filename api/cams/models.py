@@ -32,6 +32,9 @@ class Record(models.Model):
 
     def get_parking_space_label(self):
         return self.parking_space.label
-
+    
+    def get_parking_space_id(self):
+        return self.parking_space.id
+    
     def is_active(self):
         return self.out_time is None

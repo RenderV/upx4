@@ -18,6 +18,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 INTERNAL_IPS = [
     "127.0.0.1",
+    "localhost"
 ]
 
 
@@ -45,14 +46,14 @@ INSTALLED_APPS = [
     'daphne',
 
     'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
+    'django.contrib.auth', 'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
 ]
 
 MIDDLEWARE = [
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -62,7 +63,6 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.common.CommonMiddleware', 
-    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.middleware.common.CommonMiddleware',
 ]
 
@@ -159,3 +159,7 @@ CHANNEL_LAYERS = {
 
 #django-channels setting
 ASGI_APPLICATION = "smartpark.asgi.application"
+
+DEBUG_TOOLBAR_CONFIG = {
+    'SHOW_TOOLBAR_CALLBACK': lambda _request: DEBUG
+}

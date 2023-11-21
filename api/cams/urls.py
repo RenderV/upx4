@@ -1,7 +1,7 @@
 # urls.py
 
 from django.urls import path, re_path
-from .views import CameraListViewSet, CameraView, ParkingSpaceView, RecordListViewSet, RecordView, RuntimeView, RuntimeListViewSet, ObjectTypeListViewSet, ObjectTypeView
+from .views import CameraListViewSet, CameraView, ParkingSpaceView, RecordListViewSet, RecordView, RuntimeView, RuntimeListViewSet, ObjectTypeListViewSet, ObjectTypeView, ListRecordsByParkingSpace, CountLast24HView
 from .consumers import SelectionConsumer
 
 websocket_urlpatterns = [
@@ -17,5 +17,7 @@ urlpatterns = [
     path("runtime/", RuntimeListViewSet.as_view()),
     path("runtime/<runtime_id>/", RuntimeView.as_view()),
     path("object_types/", ObjectTypeListViewSet.as_view()),
-    path("object_types/<int:obj_type_id>/", ObjectTypeView.as_view())
+    path("object_types/<int:obj_type_id>/", ObjectTypeView.as_view()),
+    path("records_by_parking_space/", ListRecordsByParkingSpace.as_view()),
+    path("count_last_24h/", CountLast24HView.as_view())
 ]

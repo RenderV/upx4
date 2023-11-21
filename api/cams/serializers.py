@@ -13,10 +13,23 @@ class ParkingSpaceSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 class RecordSerializer(serializers.ModelSerializer):
-    parking_space_label = serializers.CharField(source="get_parking_space_label", read_only=True)
+    # parking_space_label = serializers.CharField(source="get_parking_space_label", read_only=True)
+    parking_space_label = serializers.CharField(read_only=True)
     class Meta:
         model = Record
         fields = "__all__"
+
+# class RecordByParkingSpaceSerializer(serializers.ModelSerializer):
+#     parking_space = serializers.UUIDField(source="get_parking_space_id", read_only=True)
+#     parking_space_label = serializers.CharField(source="get_parking_space_label", read_only=True)
+#     class Meta:
+#         model = Record
+#         fields = "__all__"
+class RecordByParkingSpaceSerializer(serializers.ModelSerializer):
+    record_set = RecordSerializer(many=True, read_only=True)
+    class Meta:
+        model = ParkingSpace
+        fields = ["id", "label", "camera", "record_set"]
 
 class ObjectTypeSerializer(serializers.ModelSerializer):
     class Meta:

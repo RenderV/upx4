@@ -28,7 +28,7 @@ services:
       context: ./inference
     command: python3 /usr/src/app/script.py
     volumes:
-      - ./inference/script.py:/usr/src/app/script.py:Z
+      - ./inference:/usr/src/app:Z
     depends_on:
       - ffmpeg
       - mediamtx

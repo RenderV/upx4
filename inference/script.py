@@ -156,8 +156,6 @@ class ParkingSpace:
         intersection = self._selection_polygon.intersection(vehicle.polygon)
         key_exists = vehicle.id in self._vehicles
 
-        # if intersection.area == 0 and key_exists and self._should_delete(vehicle):
-        #     self._del_vehicle(vehicle)
         if intersection.area == 0:
             return False
 
@@ -170,9 +168,6 @@ class ParkingSpace:
         elif intersection_ratio > threshold and key_exists:
             self._update_vehicle(vehicle)
             return True
-        # elif key_exists:
-        #     self._del_vehicle(vehicle)
-        #     return False
     
     def __export__(self):
         return {
@@ -199,7 +194,6 @@ class OccupationDetector(DetectionModel):
 
         self._runtime_id = uuid.uuid4()
         self._register()
-        # send runtime id to server
         self._selections = self._fetch_selections()
         self._thread_pool = None
         self._ws = websocket.WebSocketApp(
@@ -328,17 +322,10 @@ class OccupationDetector(DetectionModel):
                 "Threadpool already exists - must stop before creating a new one."
         )
         self._thread_pool = ThreadPoolExecutor(max_workers=10)
-        # self._thread_pool.submit(self.receive_websockets_messages)
         self._thread_pool.submit(self._fetch_polling)
         rel.signal(2, rel.abort)
         logging.log(logging.INFO, f"Started websocket threadpool")
     
-    # def receive_websockets_messages(self):
-    #     try:
-    #         self._ws.run_forever()
-    #     except Exception as e:
-    #         traceback.print_exc()
-    #         raise e
     def _fetch_polling(self):
         while True:
             try:

@@ -23,7 +23,7 @@ export default function Pessoa() {
 
         if (row.out_time) {
             out_date = new Date(row.out_time)
-            out_time = in_date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+            out_time = out_date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
         } else {
             out_date = new Date()
         }
@@ -31,9 +31,9 @@ export default function Pessoa() {
         const hours = Math.floor(time_diff / 3600000)
         const minutes = Math.floor((time_diff % 3600000) / 60000)
         const seconds = Math.floor((time_diff % 60000) / 1000)
-        const hour_str = hours > 0 ? `${hours}h ` : ''
-        const minute_str = minutes > 0 ? `${minutes}m ` : ''
-        const second_str = seconds > 0 ? `${seconds}s ` : ''
+        const hour_str = hours > 0 ? `${hours.toString().padStart(2, "0")}` : '00'
+        const minute_str = minutes > 0 ? `:${minutes.toString().padStart(2, "0")}:` : ':00:'
+        const second_str = seconds > 0 ? `${seconds.toString().padStart(2, "0")}` : '00'
         time_diff_str = `${hour_str}${minute_str}${second_str}`
         return {
             ...row,

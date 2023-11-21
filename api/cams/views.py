@@ -1,10 +1,12 @@
 from .models import Camera, ParkingSpace, Record, ObjectTypes, Runtime
 from django.utils import timezone
-from .serializers import CameraSerializer, ParkingSpaceSerializer, RecordSerializer, ObjectTypeSerializer, RuntimeSerializer
+from .serializers import CameraSerializer, ParkingSpaceSerializer, RecordSerializer, ObjectTypeSerializer, RuntimeSerializer, RecordByParkingSpaceSerializer
 from rest_framework.views import APIView
 from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
+from django.db.models import Q, F, Prefetch
+from datetime import timedelta
 import jsonschema, json
 import logging
 
@@ -57,7 +59,6 @@ class ParkingSpaceView(APIView):
     def get(self, request, parking_space_id):
         parking_space = get_object_or_404(ParkingSpace, pk=parking_space_id)
         serializer = ParkingSpaceSerializer(parking_space)
-        logging.error(serializer.errors)
         return Response(serializer.data)
     def post(self, request, parking_space_id):
         selection = request.data.get("selection")
@@ -104,7 +105,9 @@ class ParkingSpaceView(APIView):
 class RecordListViewSet(ListAPIView):
     model = Record
     serializer_class = RecordSerializer
-    queryset = Record.objects.all().order_by("-in_time")
+    queryset = Record.objects.filter(
+            Q(out_time__isnull=True) | Q(out_time__gt=F('in_time') + timedelta(minutes=1))
+        ).annotate(parking_space_label=F("parking_space__label")).order_by("-in_time")
 
 class RecordView(APIView):
     def get(self, request, record_id):
@@ -185,3 +188,30 @@ class ObjectTypeView(APIView):
             serializer.save()
             return Response(serializer.data, status=200)
         return Response(serializer.errors, status=400)
+
+class ListRecordsByParkingSpace(APIView):
+    def get(self, request):
+        parking_spaces = ParkingSpace.objects.prefetch_related(Prefetch("record_set", queryset=Record.objects.filter(out_time__isnull=True)))
+        serializer = RecordByParkingSpaceSerializer(instance=parking_spaces, many=True)
+        return Response(serializer.data, status=200)
+
+class CountLast24HView(APIView):
+    def get(self, request):
+        now = timezone.now()
+        query = ((Q(in_time__gte=now-timedelta(hours=24)) | Q(out_time__gte=now-timedelta(hours=24))) & Q(out_time__gt=F('in_time') + timedelta(minutes=1))) | Q(out_time__isnull = True)
+        records = Record.objects.filter(query).order_by("in_time")
+        keys = []
+        for i in range(24+1):
+            time = now-timedelta(hours=24-i)
+            keys.append(f"{time.day}<>{time.hour}")
+        r = {k: 0 for k in keys}
+        for record in records:
+            in_time = record.in_time
+            out_time = record.out_time or now
+            delta_hours = out_time.hour - in_time.hour if in_time.day == out_time.day else out_time.hour+(24-in_time.hour)
+            for h in range(delta_hours+1):
+                time = in_time + timedelta(hours=h)
+                key = f"{time.day}<>{time.hour}"
+                r[key] += 1
+
+        return Response(r, status=200)
