@@ -1,31 +1,66 @@
-import { Card, Paper } from "@mui/material"
-import { LineChart, PieChart } from "@mui/x-charts"
+'use client'
+import { PieChart, BarChart } from "@mui/x-charts"
 import style from "../page.module.css"
 import Typography from '@mui/material/Typography';
 import '@fontsource/roboto/400.css';
 
-export function LineChartCard({ xAxis, series, title }) {
+export function BarChartCard({ data, title }) {
+    const formattedData = Object.entries(data).map(([key, value]) => {
+        var date = new Date(key)
+        const day = date.getDay()
+        const daymap = {
+            0: "Dom",
+            1: "Seg",
+            2: "Ter",
+            3: "Qua",
+            4: "Qui",
+            5: "Sex",
+            6: "Sab",
+        }
+        const hours = date.getHours()
+        const label = `${daymap[day]} ${hours}h`
+        return {
+            label: label,
+            value,
+        };
+    });
+
+    const valueFormatter = (value) => `${value}`;
+
+    const xAxis = [
+        {
+            scaleType: 'band',
+            dataKey: 'label',
+            label: 'horario',
+        },
+    ];
+
+    const series = [
+        {
+            dataKey: 'value',
+            label: 'Número de carros',
+            valueFormatter,
+        },
+    ];
+
     return (
         <div className={style.card}>
-            <LineChart
-                xAxis={[{ data: [1, 2, 3, 5, 8, 10] }]}
-                series={[
-                    {
-                        data: [2, 5.5, 2, 8.5, 1.5, 5],
-                    },
-                ]}
+            <BarChart
+                dataset={formattedData}
+                xAxis={xAxis}
+                series={series}
             />
             <Typography variant="h4" className={style.title}>
                 {title}
             </Typography>
         </div>
-    )
+    );
 }
 
 export function PieChartCard({ series, title }) {
     return (
         <div className={style.card}>
-            <PieChart series={series}/>
+            <PieChart series={series} />
             <Typography variant="h4" className={style.title}>
                 {title}
             </Typography>

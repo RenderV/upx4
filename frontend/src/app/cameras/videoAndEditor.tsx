@@ -17,9 +17,8 @@ async function getData(fn: (data: any) => {}) {
     throw new Error('Failed to fetch data')
   }
 
-  res.json().then(data => {
-    fn(data)
-  })
+  const data = await res.json()
+  return fn(data)
 }
 
 function getInitialCoordinates(data: any, setFn: any) {
@@ -42,6 +41,7 @@ export default function VideoAndEditor() {
   const initialCoordinates: SelectionType[] = []
   const [selections, setSelections] = useState(initialCoordinates)
   const fn: any = (data: any) => getInitialCoordinates(data, setSelections)
+
   useEffect(() => {
     getData(fn)
   }, []
@@ -75,7 +75,6 @@ export default function VideoAndEditor() {
           <div className={styles.videoContainer}>
             <SelectionWrapper editMode={editMode} size={{ width: 1280, height: 720 }} changeMode={changeMode} initialCoordinates={selections} setSelections={setSelections}>
               <VideoJS options={videoJsOptions} />
-              {/* <img src="http://localhost:3000/example.png" /> */}
             </SelectionWrapper>
           </div>
         </TransformComponent>

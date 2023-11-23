@@ -1,13 +1,13 @@
 'use client'
-import { LiveTv, Logout, Feed, Dashboard, Person, DarkMode } from "@mui/icons-material";
+import { LiveTv, Logout, Feed, Dashboard, Person, Garage, DarkMode } from "@mui/icons-material";
 import Menu from "./menu";
 import { createTheme } from "@mui/material";
 import { ThemeProvider } from "@emotion/react";
 import { useState } from "react";
 
-const pagesIcons = [LiveTv, Feed, Dashboard];
-const titles = ["Câmeras", "Relatórios", "Dashboard"];
-const links = ["cameras", "relatorios", "dashboard"];
+const pagesIcons = [LiveTv, Feed, Garage, Dashboard];
+const titles = ["Câmeras", "Relatórios", "Estacionamento", "Dashboard"];
+const links = ["cameras", "relatorios", "estacionamento", "dashboard"];
 
 const menuItems = {
   UserIcon: Person,

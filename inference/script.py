@@ -90,7 +90,6 @@ class ParkingSpace:
         self._starting_time: dict[str, float] = {}
         self._last_marked_occupy: dict[str, float] = {}
 
-        self._active_ids = []
         self.selection_list = selection
         self._record_ids: dict[str, float] = {}
         logging.log(logging.INFO, f"Created parking space with id {self._id}")
@@ -98,6 +97,7 @@ class ParkingSpace:
     @property
     def selection_polygon(self):
         return self._selection_polygon
+
     @property
     def selection_list(self):
         return self._selection_list
@@ -110,14 +110,6 @@ class ParkingSpace:
     @property
     def id(self):
         return self._id
-    
-    @property
-    def active_ids(self):
-        return self._active_ids
-    
-    @active_ids.setter
-    def active_ids(self, value):
-        self._active_ids = value
     
     def _add_vehicle(self, vehicle: Vehicle, iou: float):
         self._starting_time[vehicle.id]= time.monotonic()
@@ -136,7 +128,6 @@ class ParkingSpace:
         del self._last_marked_occupy[vehicle.id]
         del self._record_ids[vehicle.id]
 
-        finishing_time = time.monotonic()
         logging.log(logging.INFO, f"Vehicle {vehicle.id} left parking space {self._id}")
     
     def _update_vehicle(self, vehicle: Vehicle):
@@ -189,12 +180,12 @@ class OccupationDetector(DetectionModel):
         ws_url: str,
         threshold: int,
         model: YOLO,
-        frame_leap=10
+        frame_leap=15
     ) -> None:
 
         self._runtime_id = uuid.uuid4()
         self._register()
-        self._selections = self._fetch_selections()
+        self._selections = [ParkingSpace(id=s["id"], selection=s["pts"]) for s in self._fetch_selections()]
         self._thread_pool = None
         self._ws = websocket.WebSocketApp(
             url=ws_url, on_message=self._parse_message, on_error=self.log_error, on_close=self._stop
@@ -205,10 +196,9 @@ class OccupationDetector(DetectionModel):
         self._threshold = None
         self._vehicles: dict[str, Vehicle] = {}
         self.threshold = threshold
-        self._active_vehicles_ids_: List[int] = []
         self._parking_spaces: dict[str, ParkingSpace] = {space.id: space for space in self._selections}
         self.frame_leap = frame_leap
-        self.count = 0
+        self.count = frame_leap
         json._schema = {
             "type": "object",
             "properties": {
@@ -267,15 +257,6 @@ class OccupationDetector(DetectionModel):
     def _active_vehicles_ids(self) -> List[int]:
         return self._active_vehicles_ids_
 
-    @_active_vehicles_ids.setter
-    def _active_vehicles_ids(self, value):
-        old_value = self._active_vehicles_ids
-        if(old_value != value):
-            for parking_space in self._parking_spaces.values():
-                logging.log(logging.DEBUG, f"Updating parking space {parking_space.id} with {parking_space.active_ids} to {value}")
-                parking_space.active_ids = value
-        self._active_vehicles_ids_ = value
-    
     def _parse_message(self, ws, message):
         try:
             message = json.loads(message)
@@ -330,18 +311,16 @@ class OccupationDetector(DetectionModel):
         while True:
             try:
                 selections = self._fetch_selections()
-                selections_ids = [selection.id for selection in selections]
+                selections_ids = [selection["id"] for selection in selections]
                 for selection in selections:
-                    if(selection.id in self._parking_spaces.keys()):
-                        self._parking_spaces[selection.id].selection_list = selection.selection_list
+                    if(selection["id"] in self._parking_spaces.keys()):
+                        self._parking_spaces[selection["id"]].selection_list = selection["pts"]
                     else:
-                        self._parking_spaces[selection.id] = selection
-                keys = list(self._parking_spaces.values())
-                for parking_space in keys:
+                        self._parking_spaces[selection["id"]] = ParkingSpace(id=selection["id"], selection=selection["pts"])
+                for parking_space in self._parking_spaces.values():
                     if parking_space.id not in selections_ids:
                         del self._parking_spaces[parking_space.id]
-                time.sleep(0.1)
-                logging.log(logging.INFO, f"Fetched selections")
+                time.sleep(1)
             except Exception as e:
                 logging.log(logging.ERROR, f"Error while fetching selections")
                 traceback.print_exc()
@@ -355,7 +334,7 @@ class OccupationDetector(DetectionModel):
             points_ = []
             for point in points:
                 points_.append((point.get("x"), point.get("y")))
-            selections.append(ParkingSpace(id=parking_space.get("id"), selection=points_))
+            selections.append({"id": parking_space.get("id"), "pts": points_})
         return selections
     
     def perform_detection(self, frame, classes, skip_detections=False, *args, **kwargs) -> List:
@@ -375,12 +354,10 @@ class OccupationDetector(DetectionModel):
             cls_probs = results[0].boxes.conf.tolist()
         if(results[0].boxes.id is not None):
             id_list = results[0].boxes.id.tolist()
-        logging.log(logging.DEBUG, f"Detection results: cls={cls_list}, conf={cls_probs}, id={id_list}")
         try:
-            self._active_vehicles_ids = id_list
             for id, mask, cls_, conf in zip(id_list, masks, cls_list, cls_probs):
                 v =  Vehicle(id, cls_, conf, Polygon(mask))
-                self._vehicles[id] = v
+                # self._vehicles[id] = v
                 for parking_space in self._parking_spaces.values():
                     parking_space.eval_vehicle(v, self.threshold)
                     parking_space.update_status()
@@ -404,7 +381,8 @@ class YoloRTSP:
     ) -> None:
 
         self._frame_to_send = None
-        self._frame_queue = queue.Queue(50)
+        self.q_limit = 3
+        self._frame_queue = queue.Queue(self.q_limit)
 
         self._input_url = input_url
         vcap = cv2.VideoCapture(input_url, cv2.CAP_FFMPEG)
@@ -486,8 +464,9 @@ class YoloRTSP:
             )
     
     def queue_put(self, value):
-        if(self._frame_queue.qsize() > 1):
+        if(self._frame_queue.qsize() >= self.q_limit-1):
             self._frame_queue.get()
+            self._frame_queue.task_done()
         self._frame_queue.put(value)
 
     def start_ffmpeg_stream(self) -> None:
@@ -569,25 +548,26 @@ class YoloRTSP:
                 traceback.print_exc()
     
     def _track(self, inference=True) -> None:
-        logging.log(logging.ERROR, "Started tracking")
+        logging.log(logging.INFO, "Started tracking")
         while True:
             try:
                 frame = self._frame_queue.get()
                 if(inference):
                     results = self._model.perform_detection(
-                        frame, classes=self._classes
+                        frame, classes=self._classes, skip_detections=True
                     )
                     with self._lock:
                         self._frame_to_send = results[0].plot()
+                        self._frame_queue.task_done()
                 else:
                     with self._lock:
                         self._frame_to_send = frame
-                self._frame_queue.task_done()
+                        self._frame_queue.task_done()
             except:
                 traceback.print_exc()
     
     def _send_loop(self,):
-        logging.log(logging.ERROR, "Started sending")
+        logging.log(logging.INFO, "Started sending")
         while True:
             starttime = time.monotonic()
             with self._lock:

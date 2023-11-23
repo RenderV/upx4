@@ -203,7 +203,8 @@ class CountLast24HView(APIView):
         keys = []
         for i in range(24+1):
             time = now-timedelta(hours=24-i)
-            keys.append(f"{time.day}<>{time.hour}")
+            key = time.replace(minute=0, second=0, microsecond=0).isoformat()
+            keys.append(key)
         r = {k: 0 for k in keys}
         for record in records:
             in_time = record.in_time
@@ -211,7 +212,7 @@ class CountLast24HView(APIView):
             delta_hours = out_time.hour - in_time.hour if in_time.day == out_time.day else out_time.hour+(24-in_time.hour)
             for h in range(delta_hours+1):
                 time = in_time + timedelta(hours=h)
-                key = f"{time.day}<>{time.hour}"
+                key = time.replace(minute=0, second=0, microsecond=0).isoformat()
                 r[key] += 1
 
         return Response(r, status=200)

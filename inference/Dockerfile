@@ -1,7 +1,7 @@
 FROM ubuntu
 
 ENV DEBIAN_FRONTEND=noninteractive \
-    TZ=America/New_York
+    TZ=America/Sao_Paulo
 
 COPY ./requirements.txt ./requirements.txt
 

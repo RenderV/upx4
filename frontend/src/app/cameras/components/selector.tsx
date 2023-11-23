@@ -16,7 +16,7 @@ async function postSelection(url: string, data: any) {
         },
         body: JSON.stringify(data)
     });
-    if(!response.ok){
+    if (!response.ok) {
         response = await fetch(url, {
             method: 'PATCH',
             headers: {
@@ -75,15 +75,15 @@ export function Selection({
     const pointRadius = 7;
     const [pointState, setPointState] = useState(points)
     var currentPoints: SelectionType
-    if(selectionUpdate){
+    if (selectionUpdate) {
         currentPoints = points
     } else {
         currentPoints = pointState
     }
     const setPoints = (selection: SelectionType | ((selection: SelectionType) => SelectionType)) => {
-        if(selectionUpdate && typeof selection !== "function")
+        if (selectionUpdate && typeof selection !== "function")
             selectionUpdate(selection)
-        else if(selectionUpdate && typeof selection === "function")
+        else if (selectionUpdate && typeof selection === "function")
             selectionUpdate(selection(currentPoints))
         else if (selectionUpdate === undefined)
             setPointState(selection)
@@ -96,7 +96,7 @@ export function Selection({
         const data = {
             "label": currentPoints.label.slice(0, 29),
             "camera": 1,
-            "selection": currentPoints.points.map((p) => {return {"x": p.x, "y": p.y}})
+            "selection": currentPoints.points.map((p) => { return { "x": p.x, "y": p.y } })
         }
         postSelection(url, data)
 

@@ -24,21 +24,22 @@ services:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
   inference:
-    build:
-      context: ./inference
+    # build:
+    #   context: ./inference
+    image: vertolis/something:latest
     command: python3 /usr/src/app/script.py
     volumes:
       - ./inference:/usr/src/app:Z
     depends_on:
       - ffmpeg
       - mediamtx
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
   webapp:
     build:
       context: ./frontend
@@ -65,7 +66,7 @@ services:
   ffmpeg:
     build:
       context: ./ffmpeg
-    command: ffmpeg -re -stream_loop -1 -ss 04:49:38 -i collingwood.mp4 -c copy -f rtsp rtsp://mediamtx:8554/collingwood
+    command: ffmpeg -re -stream_loop -1 -ss 06:49:38 -i collingwood.mp4 -c copy -f rtsp rtsp://mediamtx:8554/collingwood
     volumes:
       - ${VIDEO_PATH}:/collingwood.mp4:Z
     depends_on:

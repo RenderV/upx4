@@ -29,9 +29,6 @@ class Record(models.Model):
     obj_type = models.CharField()
     parking_space = models.ForeignKey(to=ParkingSpace, on_delete=models.CASCADE)
     runtime = models.ForeignKey(to=Runtime, on_delete=models.CASCADE, null=True)
-
-    def get_parking_space_label(self):
-        return self.parking_space.label
     
     def get_parking_space_id(self):
         return self.parking_space.id
