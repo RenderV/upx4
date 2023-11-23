@@ -1,5 +1,6 @@
 from pathlib import Path
 import cv2
+import os
 import time
 import signal
 import requests
@@ -616,9 +617,10 @@ def create_signal_handler(streamers: List[YoloRTSP]) -> None:
 
 if __name__ == "__main__":
     urls = get_urls()
+    yolo_model_name = os.environ.get("YOLO_MODEL", "yolov8x-seg.pt")
     streamers = []
     requests.post("http://api:8000/api/cams/1/", json={"location": "Brazil", "url": "http://mediamtx:8888/opencv"})
-    model = OccupationDetector("ws://api:8000/ws/1/", threshold=0.6, model=YOLO("yolov8n-seg.pt"))
+    model = OccupationDetector("ws://api:8000/ws/1/", threshold=0.6, model=YOLO(yolo_model_name))
     logging.log(logging.INFO, f"Created model {model}")
     model.start()
     for file_url, rtsp_server in zip(*urls):

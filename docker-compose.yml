@@ -33,6 +33,8 @@ services:
     depends_on:
       - ffmpeg
       - mediamtx
+    environment:
+      - YOLO_MODEL=${YOLO_MODEL}
     deploy:
       resources:
         reservations:
