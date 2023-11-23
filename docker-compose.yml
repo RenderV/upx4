@@ -33,13 +33,13 @@ services:
     depends_on:
       - ffmpeg
       - mediamtx
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
   webapp:
     build:
       context: ./frontend
