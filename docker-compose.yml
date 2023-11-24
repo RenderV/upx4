@@ -35,13 +35,13 @@ services:
       - mediamtx
     environment:
       - YOLO_MODEL=${YOLO_MODEL}
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
   webapp:
     build:
       context: ./frontend

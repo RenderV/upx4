@@ -22,6 +22,7 @@ import numpy as np
 import queue
 import uuid
 import datetime
+from threading import Thread
 
 logging.basicConfig(level=logging.INFO)
 
@@ -189,6 +190,7 @@ class OccupationDetector(DetectionModel):
         self._register()
         self._selections = [ParkingSpace(id=s["id"], selection=s["pts"]) for s in self._fetch_selections()]
         self._thread_pool = None
+        self._eval_thread = None
         self._ws = websocket.WebSocketApp(
             url=ws_url, on_message=self._parse_message, on_error=self.log_error, on_close=self._stop
         )
@@ -339,7 +341,7 @@ class OccupationDetector(DetectionModel):
             selections.append({"id": parking_space.get("id"), "pts": points_})
         return selections
     
-    async def _eval_vehicles(self, results):
+    def _eval_vehicles(self, results):
         masks, cls_list, cls_probs, id_list = [], [], [], []
         if(results[0].masks is not None):
             masks = results[0].masks.xy
@@ -365,7 +367,10 @@ class OccupationDetector(DetectionModel):
         elif(self.count < self.frame_leap):
             self.count += 1
         try:
-            self._eval_vehicles(results)
+            if(self._eval_thread is not None):
+                self._eval_thread.join()
+            self._eval_thread = Thread(target=self._eval_vehicles, args=(results,))
+            self._eval_thread.start()
         except Exception as e:
             logging.log(logging.ERROR, f"Error while computing intersections")
             traceback.print_exc()
