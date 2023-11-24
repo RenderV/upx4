@@ -146,7 +146,11 @@ class ParkingSpace:
         return time.monotonic() - self._last_marked_occupy[vehicle.id] > self._max_inactive_tolerance
     
     def eval_vehicle(self, vehicle: Vehicle, threshold) -> bool:
+
         intersection = self._selection_polygon.intersection(vehicle.polygon)
+        if(intersection.area == 0):
+            return False
+
         key_exists = vehicle.id in self._vehicles
 
         if intersection.area == 0:
@@ -342,6 +346,7 @@ class OccupationDetector(DetectionModel):
         return selections
     
     def _eval_vehicles(self, results):
+        start = time.monotonic()
         masks, cls_list, cls_probs, id_list = [], [], [], []
         if(results[0].masks is not None):
             masks = results[0].masks.xy
@@ -357,15 +362,18 @@ class OccupationDetector(DetectionModel):
             for parking_space in self._parking_spaces.values():
                 parking_space.eval_vehicle(v, self.threshold)
                 parking_space.update_status()
+        elapsed = time.monotonic() - start
+        logging.log(logging.INFO, f"Evaluated vehicles in {elapsed*1000} ms\n")
     
     def perform_detection(self, frame, classes, skip_detections=False, *args, **kwargs) -> List:
         logging.log(logging.DEBUG, f"Performing detection on frame")
         results = self.model.track(frame, persist=True, classes=classes, tracker="bytetrack.yaml")
-        if(skip_detections and self.count >= self.frame_leap):
-            self.count = 0
-            return results
-        elif(self.count < self.frame_leap):
+        if(skip_detections and self.count <= self.frame_leap):
+            logging.log(logging.INFO, f"Skipping evaluation\n")
             self.count += 1
+            return results
+        elif(self.count > self.frame_leap):
+            self.count = 0
         try:
             if(self._eval_thread is not None):
                 self._eval_thread.join()
@@ -552,7 +560,7 @@ class YoloRTSP:
                         logging.error("invalid VIDEO, trying to recconect...")
                     else:
                         logging.error("failed")
-                    self._vcap = cv2.VideoCapture(self._input_url, cv2.CAP_FFMPEG)
+                    self._vcap = cv2.VideoCapture(self._input_url)
                     continue
             except:
                 traceback.print_exc()
