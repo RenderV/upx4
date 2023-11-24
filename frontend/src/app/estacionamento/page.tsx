@@ -43,28 +43,27 @@ function Row(props: { row: any }) {
         <TableCell component="th" scope="row">
           {row.label}
         </TableCell>
-        <TableCell align="right">{row.camera}</TableCell>
+        <TableCell align="left">{row.camera}</TableCell>
         {/* Include other TableCell components for additional fields */}
       </TableRow>
       <TableRow>
         <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={6}>
           <Collapse in={open} timeout="auto" unmountOnExit>
             <Box sx={{ margin: 1 }}>
-              <Typography variant="h6" gutterBottom component="div">
+              <Typography gutterBottom component="div">
                 Vehicle
               </Typography>
               {/* Modify this section to display the record_set data */}
               <Table size="small" aria-label="vehicles">
                 <TableHead>
                   <TableRow>
-                    <TableCell>In Time</TableCell>
-                    <TableCell>Out Time</TableCell>
-                    <TableCell>Vehicle Id</TableCell>
+                    <TableCell>Entrada</TableCell>
+                    <TableCell>Saída</TableCell>
+                    <TableCell>ID</TableCell>
                     <TableCell align="right">Type</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {/* Map through the record_set data */}
                   {row.record_set.map((vehicle: any) => (
                     <TableRow key={vehicle.id}>
                       <TableCell>
@@ -75,7 +74,6 @@ function Row(props: { row: any }) {
                       </TableCell>
                       <TableCell>{vehicle.obj_id}</TableCell>
                       <TableCell align="right">{vehicle.obj_type}</TableCell>
-                      {/* Include other TableCell components for additional fields */}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -111,8 +109,9 @@ export default function Page() {
         <TableHead>
           <TableRow>
             <TableCell />
-            <TableCell>Parking Space</TableCell>
-            {/* Include other Table header cells */}
+            <TableCell>Nome da Vaga</TableCell>
+            <TableCell>ID da Câmera</TableCell>
+            <TableCell></TableCell>
           </TableRow>
         </TableHead>
         <TableBody>

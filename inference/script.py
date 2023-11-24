@@ -181,7 +181,8 @@ class OccupationDetector(DetectionModel):
         ws_url: str,
         threshold: int,
         model: YOLO,
-        frame_leap=15
+        frame_leap=15,
+        copies = 1,
     ) -> None:
 
         self._runtime_id = uuid.uuid4()
@@ -338,14 +339,7 @@ class OccupationDetector(DetectionModel):
             selections.append({"id": parking_space.get("id"), "pts": points_})
         return selections
     
-    def perform_detection(self, frame, classes, skip_detections=False, *args, **kwargs) -> List:
-        logging.log(logging.DEBUG, f"Performing detection on frame")
-        results = self.model.track(frame, persist=True, classes=classes, tracker="bytetrack.yaml")
-        if(skip_detections and self.count >= self.frame_leap):
-            self.count = 0
-            return results
-        elif(self.count < self.frame_leap):
-            self.count += 1
+    async def _eval_vehicles(self, results):
         masks, cls_list, cls_probs, id_list = [], [], [], []
         if(results[0].masks is not None):
             masks = results[0].masks.xy
@@ -355,13 +349,23 @@ class OccupationDetector(DetectionModel):
             cls_probs = results[0].boxes.conf.tolist()
         if(results[0].boxes.id is not None):
             id_list = results[0].boxes.id.tolist()
+
+        for id, mask, cls_, conf in zip(id_list, masks, cls_list, cls_probs):
+            v =  Vehicle(id, cls_, conf, Polygon(mask))
+            for parking_space in self._parking_spaces.values():
+                parking_space.eval_vehicle(v, self.threshold)
+                parking_space.update_status()
+    
+    def perform_detection(self, frame, classes, skip_detections=False, *args, **kwargs) -> List:
+        logging.log(logging.DEBUG, f"Performing detection on frame")
+        results = self.model.track(frame, persist=True, classes=classes, tracker="bytetrack.yaml")
+        if(skip_detections and self.count >= self.frame_leap):
+            self.count = 0
+            return results
+        elif(self.count < self.frame_leap):
+            self.count += 1
         try:
-            for id, mask, cls_, conf in zip(id_list, masks, cls_list, cls_probs):
-                v =  Vehicle(id, cls_, conf, Polygon(mask))
-                # self._vehicles[id] = v
-                for parking_space in self._parking_spaces.values():
-                    parking_space.eval_vehicle(v, self.threshold)
-                    parking_space.update_status()
+            self._eval_vehicles(results)
         except Exception as e:
             logging.log(logging.ERROR, f"Error while computing intersections")
             traceback.print_exc()
